@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'addexpense.dart';
 
 class DashboardPage extends StatelessWidget {
   const DashboardPage({super.key});
@@ -9,51 +10,82 @@ class DashboardPage extends StatelessWidget {
       backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Header
             Padding(
               padding: const EdgeInsets.all(16.0),
               child: Row(
                 children: [
-                  Icon(Icons.savings, size: 40, color: Colors.lightBlue[300]),
+                  Icon(Icons.savings, size: 40, color: Colors.blue[400]),
                   const SizedBox(width: 12),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
-                      Text('Welcome!', style: TextStyle(fontSize: 16)),
-                      Text('John Doe', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      Text('Welcome!', style: TextStyle(fontSize: 14)),
+                      Text('John Doe',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
                 ],
               ),
             ),
+
+            // Balance Card
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.blue[300],
-                borderRadius: BorderRadius.circular(20),
+                color: Colors.lightBlue[300],
+                borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: const [
-                  Text('Total Balance', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-                  SizedBox(height: 8),
-                  Text('\$ 0.00', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 32)),
-                  SizedBox(height: 8),
-                  Text('Daily Expenses', style: TextStyle(color: Colors.white, fontSize: 14)),
-                  Text('\$ 400.00', style: TextStyle(color: Colors.white, fontSize: 16)),
+                  Text('Total Balance',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16),
+                      textAlign: TextAlign.center),
+                  SizedBox(height: 6),
+                  Text('\$ 0.00',
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 28),
+                      textAlign: TextAlign.center),
+                  SizedBox(height: 6),
+                  Text('Daily Expenses',
+                      style: TextStyle(color: Colors.white, fontSize: 13),
+                      textAlign: TextAlign.center),
+                  Text('\$ 400.00',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center),
                 ],
               ),
             ),
+
+            // Expense Records Header
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: const [
-                  Text('Expense Records', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20)),
-                  Text('View all', style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold)),
+                  Text('Expense Records',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                  Text('View all',
+                      style: TextStyle(
+                          color: Colors.black54, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
+
+            // Expense List
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -65,29 +97,40 @@ class DashboardPage extends StatelessWidget {
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8),
+
+            // Bottom Navigation Bar
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.purple[100],
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(24),
+                  topRight: Radius.circular(24),
+                ),
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(Icons.edit, size: 32, color: Colors.black),
+                  const Icon(Icons.edit, size: 28, color: Colors.black),
                   Container(
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       color: Colors.black,
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
                       icon: const Icon(Icons.add, color: Colors.white),
-                      onPressed: () {},
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => const AddExpensePage()),
+                        );
+                      },
                     ),
                   ),
-                  Icon(Icons.notifications, size: 32, color: Colors.black),
+                  const Icon(Icons.notifications, size: 28, color: Colors.black),
                 ],
               ),
-            ),
-            Container(
-              height: 40,
-              color: Colors.blue[100],
             ),
           ],
         ),
@@ -95,22 +138,26 @@ class DashboardPage extends StatelessWidget {
     );
   }
 
-  Widget _expenseItem(IconData icon, String label, String amount) {
+  static Widget _expenseItem(IconData icon, String label, String amount) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.blue[100],
-        borderRadius: BorderRadius.circular(16),
+        color: Colors.purple[100],
+        borderRadius: BorderRadius.circular(30), // pill shape
       ),
       child: Row(
         children: [
-          Icon(icon, size: 32, color: Colors.black),
+          Icon(icon, size: 28, color: Colors.black),
           const SizedBox(width: 16),
           Expanded(
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            child: Text(label,
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ),
-          Text(amount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(amount,
+              style:
+                  const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ],
       ),
     );
