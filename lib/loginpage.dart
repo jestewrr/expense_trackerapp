@@ -36,7 +36,7 @@ class _LoginPageState extends State<LoginPage> {
                 children: [
                   // Elephant icon (you can replace with a custom asset elephant.png)
                   Icon(
-                    Icons.adb, // 🐘 replace with elephant asset for best look
+                    Icons.savings, // replace with elephant asset for best look
                     size: 140,
                     color: Colors.blue.shade700,
                   ),
@@ -44,7 +44,7 @@ class _LoginPageState extends State<LoginPage> {
 
                   // Title
                   Text(
-                    "Blue Elephant",
+                    "Save Expense",
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
