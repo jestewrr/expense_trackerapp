@@ -245,7 +245,19 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
                               IconButton(
                                 icon: const Icon(Icons.edit,
                                     color: Colors.black54, size: 20),
-                                onPressed: () => _showExpenseDetails(expense),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          EditClickedCategoryPage(
+                                        amount: expenses[index]['amount'],
+                                        name: expenses[index]['name'],
+                                        date: expenses[index]['date'],
+                                      ),
+                                    ),
+                                  );
+                                },
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
                               ),
@@ -274,12 +286,30 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
                                 ),
                               ),
                               IconButton(
-                                icon: const Icon(Icons.delete,
-                                    color: Colors.red, size: 20),
+                                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
                                 onPressed: () {
-                                  setState(() {
-                                    expenses.removeAt(index);
-                                  });
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Delete Item'),
+                                      content: const Text('Are you sure you want to delete this?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context), // Cancel
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            setState(() {
+                                              expenses.removeAt(index);
+                                            });
+                                            Navigator.pop(context); // Close dialog
+                                          },
+                                          child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
                                 },
                                 padding: EdgeInsets.zero,
                                 constraints: const BoxConstraints(),
@@ -320,6 +350,202 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class EditClickedCategoryPage extends StatefulWidget {
+  final double amount;
+  final String name;
+  final String date;
+
+  const EditClickedCategoryPage({
+    super.key,
+    required this.amount,
+    required this.name,
+    required this.date,
+  });
+
+  @override
+  State<EditClickedCategoryPage> createState() => _EditClickedCategoryPageState();
+}
+
+class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
+  late TextEditingController amountController;
+  late TextEditingController nameController;
+  late TextEditingController dateController;
+
+  @override
+  void initState() {
+    super.initState();
+    amountController = TextEditingController(text: widget.amount.toString());
+    nameController = TextEditingController(text: widget.name);
+    dateController = TextEditingController(text: widget.date);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Back button and title
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  const Spacer(),
+                ],
+              ),
+              const SizedBox(height: 8),
+              const Center(
+                child: Text(
+                  'Edit Expenses',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 22,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              // Amount field
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.blue[100],
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: TextField(
+                  controller: amountController,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    labelText: 'Category name:',
+                    prefixText: '\$',
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Name field
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.blue[100],
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    labelText: 'Name:',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Date field
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.blue[100],
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: dateController,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          labelText: 'Date:',
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: () async {
+                        DateTime? picked = await showDatePicker(
+                          context: context,
+                          initialDate: DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime(2100),
+                        );
+                        if (picked != null) {
+                          setState(() {
+                            dateController.text =
+                                "${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}";
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 40),
+              // Update button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // TODO: handle update logic
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.lightBlue[300],
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: const Text(
+                    'Update',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Delete button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () {
+                    // TODO: handle delete logic
+                    Navigator.pop(context);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red[300],
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: const Text(
+                    'Delete',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

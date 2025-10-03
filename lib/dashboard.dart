@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'addexpense.dart';
 import 'loginpage.dart';
 import 'categoryclicked.dart';
+import 'expense_records.dart'; // Add this import
+import 'setexpense.dart'; // Add this import
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -11,6 +13,19 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
+  int selectedTab = 3; // 0: Today, 1: Weekly, 2: Monthly, 3: Yearly
+
+  // Add this at the top of your _DashboardPageState:
+  final List<String> balanceOptions = ['Weekly', 'Monthly', 'Yearly'];
+  int selectedBalanceOption = 0; // 0: Weekly, 1: Monthly, 2: Yearly
+
+  final List<double> balances = [400.00, 1200.00, 15000.00];
+  final List<String> dateRanges = [
+    'Oct 6, 2025 - Oct 12, 2025',
+    'Oct 1, 2025 - Oct 31, 2025',
+    'Jan 1, 2025 - Dec 31, 2025'
+  ];
+
   double totalBalance = 0.00;
   double dailyExpense = 400.00;
 
@@ -113,21 +128,20 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
-      // FAB (circular + shadow)
       floatingActionButton: FloatingActionButton(
-        shape: const CircleBorder(), // ensures perfect circle
+        backgroundColor: Colors.black,
+        shape: const CircleBorder(),
         onPressed: () {
           Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => const AddExpensePage()));
+            context,
+            MaterialPageRoute(
+              builder: (context) => ExpenseRecordsPage(),
+            ),
+          );
         },
-        backgroundColor: Colors.black,
-        child: const Icon(Icons.add, color: Colors.white, size: 28),
+        child: const Icon(Icons.bar_chart, color: Colors.white, size: 32),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-
-      // Bottom bar
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
@@ -137,24 +151,27 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              // Set Expense icon on the left
               IconButton(
                 icon: const Icon(Icons.edit, color: Colors.black),
                 onPressed: () {
-                  // Edit button functionality
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SetExpensePage(),
+                    ),
+                  );
                 },
               ),
+              // Chart button is now handled by floatingActionButton in the center
               IconButton(
                 icon: const Icon(Icons.notifications, color: Colors.black),
-                onPressed: () {
-                  // Notifications functionality
-                },
+                onPressed: () {},
               ),
             ],
           ),
         ),
       ),
-
-      // Body
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -200,38 +217,106 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ),
 
-            // Balance Card
+            // Balance Card with dynamic balance and date range
             Container(
               width: double.infinity,
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding:
-                  const EdgeInsets.symmetric(vertical: 26, horizontal: 20),
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
               decoration: BoxDecoration(
-                color: const Color(0xFF8EA7FF),
-                borderRadius: BorderRadius.circular(16),
+                color: const Color.fromARGB(255, 110, 131, 208),
+                borderRadius: BorderRadius.circular(28),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Text("Total Balance",
-                      style: TextStyle(
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "Total Balance",
+                        style: TextStyle(
                           color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      DropdownButton<String>(
+                        value: balanceOptions[selectedBalanceOption],
+                        dropdownColor: const Color(0xFF8EA7FF),
+                        icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                        underline: const SizedBox(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
                           fontSize: 16,
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Text("\$ ${totalBalance.toStringAsFixed(2)}",
+                        ),
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            selectedBalanceOption = balanceOptions.indexOf(newValue!);
+                          });
+                        },
+                        items: balanceOptions.map((String option) {
+                          return DropdownMenuItem<String>(
+                            value: option,
+                            child: Text(option),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    "\$ ${balances[selectedBalanceOption].toStringAsFixed(2)}",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Daily Expenses",
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    "\$ ${dailyExpense.toStringAsFixed(2)}",
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      dateRanges[selectedBalanceOption],
                       style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  const Text("Daily Expenses",
-                      style: TextStyle(color: Colors.white70, fontSize: 14)),
-                  Text("\$ ${dailyExpense.toStringAsFixed(2)}",
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600)),
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 1.05,
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -314,6 +399,33 @@ class _DashboardPageState extends State<DashboardPage> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTab(String label, int index) {
+    final bool selected = selectedTab == index;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          selectedTab = index;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? Colors.lightBlue[200] : Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Colors.lightBlue[200]!),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.black : Colors.black54,
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
         ),
       ),
     );
