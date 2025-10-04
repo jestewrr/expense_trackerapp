@@ -1,3 +1,4 @@
+import 'package:expense_tracker_application/categooryaddexpense.dart';
 import 'package:flutter/material.dart';
 
 class CategoryClickedPage extends StatefulWidget {
@@ -340,10 +341,17 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
                     ],
                   ),
                   child: IconButton(
-                    icon:
-                        const Icon(Icons.add, color: Colors.white, size: 32),
+                    icon: const Icon(Icons.add, color: Colors.white, size: 32),
                     onPressed: () {
-                      // TODO: Add new expense functionality
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => CategoryAddExpensePage(
+                            category: widget.category,
+                            icon: widget.icon,
+                          ),
+                        ),
+                      );
                     },
                   ),
                 ),
