@@ -1,3 +1,4 @@
+import 'package:expense_tracker_application/onboardlogin.dart';
 import 'package:flutter/material.dart';
 import 'loginpage.dart';
 
@@ -8,7 +9,6 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -16,7 +16,8 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const LoginPage(),
+      // Start with OnboardLoginPage
+      home: const OnboardLoginPage(),
       debugShowCheckedModeBanner: false,
     );
   }

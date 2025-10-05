@@ -12,122 +12,153 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   bool _obscureText = true;
 
+  // Sample user database
+  final List<Map<String, dynamic>> users = [
+    {
+      'username': 'firstuser',
+      'password': 'password123',
+      'isFirstTime': true,
+    },
+    {
+      'username': 'regularuser',
+      'password': 'mypassword',
+      'isFirstTime': false,
+    },
+  ];
+
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  String? _errorMessage;
+
+  void _login() {
+    String username = _usernameController.text.trim();
+    String password = _passwordController.text;
+
+    final user = users.firstWhere(
+      (u) => u['username'] == username && u['password'] == password,
+      orElse: () => {},
+    );
+
+    if (user.isNotEmpty) {
+      // Login success
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DashboardPage(
+            isFirstLogin: user['isFirstTime'] ?? false,
+          ),
+        ),
+      );
+    } else {
+      setState(() {
+        _errorMessage = "Invalid username or password.";
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        // Soft gradient background
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFFB3E5FC), // light blue
-              Color(0xFFE1F5FE), // very soft sky
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Elephant icon (you can replace with a custom asset elephant.png)
-                  Icon(
-                    Icons.savings, // replace with elephant asset for best look
-                    size: 140,
-                    color: Colors.blue.shade700,
+      backgroundColor: const Color(0xFFE3F2FD),
+      body: Center(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                // Pig image (large)
+                SizedBox(
+                  height: 300,
+                  child: Image.asset(
+                    'images/pig.png',
+                    fit: BoxFit.contain,
                   ),
-                  const SizedBox(height: 20),
+                ),
+                const SizedBox(height: 40),
 
-                  // Title
-                  Text(
-                    "Save Expense",
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade800,
-                      letterSpacing: 1.2,
+                // Username field (no icon, large, rounded)
+                _buildTextField(
+                  hint: "Username",
+                  isPassword: false,
+                  controller: _usernameController,
+                ),
+                const SizedBox(height: 18),
+
+                // Password field (no icon, large, rounded)
+                _buildTextField(
+                  hint: "Password",
+                  isPassword: true,
+                  controller: _passwordController,
+                ),
+                const SizedBox(height: 18),
+
+                // Error message
+                if (_errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text(
+                      _errorMessage!,
+                      style: const TextStyle(color: Colors.red, fontSize: 16),
                     ),
                   ),
-                  const SizedBox(height: 40),
 
-                  // Username field
-                  _buildTextField(
-                    hint: "Username",
-                    icon: Icons.person,
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Password field
-                  _buildTextField(
-                    hint: "Password",
-                    icon: Icons.lock,
-                    isPassword: true,
-                  ),
-                  const SizedBox(height: 28),
-
-                  // Login button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade600,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        elevation: 4,
+                // Login button (large, rounded)
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.lightBlue[300],
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(28),
                       ),
-                      onPressed: () {
-                        Navigator.pushReplacement(
+                      elevation: 0,
+                    ),
+                    onPressed: _login,
+                    child: const Text(
+                      'Login',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        color: Colors.black,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // Sign-up link (larger font)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Don’t have an account? ",
+                      style: TextStyle(fontSize: 15),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => const DashboardPage(),
+                            builder: (context) => const RegisterPage(),
                           ),
                         );
                       },
                       child: const Text(
-                        'Login',
+                        'Sign-up here',
                         style: TextStyle(
+                          color: Colors.blue,
                           fontWeight: FontWeight.bold,
-                          fontSize: 18,
-                          color: Colors.white,
+                          decoration: TextDecoration.underline,
+                          fontSize: 15,
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 18),
-
-                  // Sign-up link
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("Don’t have an account? "),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const RegisterPage(),
-                            ),
-                          );
-                        },
-                        child: Text(
-                          'Sign-up here',
-                          style: TextStyle(
-                            color: Colors.blue.shade800,
-                            fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
@@ -135,39 +166,48 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  // Reusable styled textfield
+  // Clean, large textfield with rounded corners
   Widget _buildTextField({
     required String hint,
-    required IconData icon,
     bool isPassword = false,
+    TextEditingController? controller,
   }) {
-    return TextField(
-      obscureText: isPassword ? _obscureText : false,
-      decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.blue.shade700),
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.black54),
-        filled: true,
-        fillColor: Colors.white,
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      height: 54,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: Colors.blue[100],
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Center(
+        child: TextField(
+          controller: controller,
+          obscureText: isPassword ? _obscureText : false,
+          style: const TextStyle(fontSize: 18),
+          decoration: InputDecoration(
+            hintText: hint,
+            hintStyle: const TextStyle(
+              color: Colors.black87,
+              fontWeight: FontWeight.w500,
+              fontSize: 18,
+            ),
+            border: InputBorder.none,
+            suffixIcon: isPassword
+                ? IconButton(
+                    icon: Icon(
+                      _obscureText ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.black54,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureText = !_obscureText;
+                      });
+                    },
+                  )
+                : null,
+          ),
         ),
-        suffixIcon: isPassword
-            ? IconButton(
-                icon: Icon(
-                  _obscureText ? Icons.visibility : Icons.visibility_off,
-                  color: Colors.grey,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _obscureText = !_obscureText;
-                  });
-                },
-              )
-            : null,
       ),
     );
   }
