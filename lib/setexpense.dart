@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'addsetexpense.dart'; // Add this import
-import 'viewsetexpense.dart'; // Add this import
+import 'addsetexpense.dart';
+import 'viewsetexpense.dart';
+import 'services/planned_expense_service.dart';
+import 'models/planned_expense.dart';
 
 class SetExpensePage extends StatefulWidget {
   const SetExpensePage({super.key});
@@ -10,12 +12,81 @@ class SetExpensePage extends StatefulWidget {
 }
 
 class _SetExpensePageState extends State<SetExpensePage> {
-  // Dummy planned expense dates
-  final List<Map<String, String>> plannedExpenses = [
-    {'start': '10/11/2025', 'end': '10/20/2025'},
-    {'start': '10/21/2025', 'end': '10/30/2025'},
-    {'start': '11/1/2025', 'end': '11/15/2025'},
-  ];
+  List<PlannedExpense> plannedExpenses = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlannedExpenses();
+  }
+
+  Future<void> _loadPlannedExpenses() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final expenses = await PlannedExpenseService.getAllPlannedExpenses();
+      setState(() {
+        plannedExpenses = expenses;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error loading planned expenses: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _deletePlannedExpense(PlannedExpense expense) async {
+    try {
+      final result = await PlannedExpenseService.deletePlannedExpense(expense.id);
+      if (result['success']) {
+        setState(() {
+          plannedExpenses.removeWhere((e) => e.id == expense.id);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error deleting planned expense: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.month}/${date.day}/${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,19 +111,23 @@ class _SetExpensePageState extends State<SetExpensePage> {
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8),
-        child: plannedExpenses.isEmpty
+        child: _isLoading
             ? const Center(
-                child: Text(
-                  "No planned expense yet",
-                  style: TextStyle(fontSize: 16, color: Colors.black),
-                ),
+                child: CircularProgressIndicator(),
               )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("List", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  const SizedBox(height: 12),
-                  ...plannedExpenses.map((exp) => Container(
+            : plannedExpenses.isEmpty
+                ? const Center(
+                    child: Text(
+                      "No planned expense yet",
+                      style: TextStyle(fontSize: 16, color: Colors.black),
+                    ),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("List", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const SizedBox(height: 12),
+                      ...plannedExpenses.map((exp) => Container(
                     margin: const EdgeInsets.only(bottom: 16),
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
                     decoration: BoxDecoration(
@@ -65,11 +140,25 @@ class _SetExpensePageState extends State<SetExpensePage> {
                         Row(
                           children: [
                             Text(
-                              "Date:  ${exp['start']} - ${exp['end']}",
+                              "Date:  ${_formatDate(exp.startDate)} - ${_formatDate(exp.endDate)}",
                               style: const TextStyle(fontSize: 16, color: Colors.black),
                             ),
                             const Spacer(),
                             const Icon(Icons.calendar_month, color: Colors.black),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text(
+                              "Budget: \$${exp.totalBudget.toStringAsFixed(2)}",
+                              style: const TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.w500),
+                            ),
+                            const Spacer(),
+                            Text(
+                              "Cost: \$${exp.cost.toStringAsFixed(2)}",
+                              style: const TextStyle(fontSize: 14, color: Colors.black87, fontWeight: FontWeight.w500),
+                            ),
                           ],
                         ),
                         const SizedBox(height: 12),
@@ -84,51 +173,32 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => AddSetExpensePage(
-                                      initialExpense: exp, // Pass the expense to edit
+                                      initialExpense: {
+                                        'id': exp.id,
+                                        'name': exp.name,
+                                        'category': exp.category,
+                                        'cost': exp.cost.toString(),
+                                        'startDate': exp.startDate.toIso8601String(),
+                                        'endDate': exp.endDate.toIso8601String(),
+                                        'budget': exp.totalBudget.toString(),
+                                      },
                                     ),
                                   ),
                                 );
                                 if (result != null) {
-                                  setState(() {
-                                    // Update the plannedExpenses list with the edited result
-                                    final index = plannedExpenses.indexOf(exp);
-                                    plannedExpenses[index] = result;
-                                  });
+                                  // Reload the expenses after editing
+                                  await _loadPlannedExpenses();
                                 }
                               },
                             ),
                             IconButton(
                               icon: const Icon(Icons.remove_red_eye, size: 28),
-                              onPressed: () {
+                              onPressed: () async {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
                                     builder: (context) => ViewSetExpensePage(
-                                      dateRange: "${exp['start']} - ${exp['end']}",
-                                      totalBudget: 1000.0, // Replace with your actual budget value
-                                      expenses: [
-                                        // Replace with your actual expense details
-                                        {
-                                          'icon': Icons.lunch_dining,
-                                          'category': 'Food',
-                                          'total': 140.0,
-                                          'items': [
-                                            {'name': 'Deserts', 'cost': 40.0},
-                                            {'name': 'Bread', 'cost': 20.0},
-                                            {'name': 'Rice', 'cost': 50.0},
-                                            {'name': 'Canned Goods', 'cost': 30.0},
-                                          ],
-                                        },
-                                        {
-                                          'icon': Icons.shopping_bag,
-                                          'category': 'Shopping',
-                                          'total': 120.0,
-                                          'items': [
-                                            {'name': 'Clothes', 'cost': 70.0},
-                                            {'name': 'Skin Care', 'cost': 50.0},
-                                          ],
-                                        },
-                                      ],
+                                      plannedExpenseId: exp.id,
                                     ),
                                   ),
                                 );
@@ -149,11 +219,9 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                         child: const Text('Cancel'),
                                       ),
                                       TextButton(
-                                        onPressed: () {
-                                          setState(() {
-                                            plannedExpenses.remove(exp);
-                                          });
+                                        onPressed: () async {
                                           Navigator.pop(context);
+                                          await _deletePlannedExpense(exp);
                                         },
                                         child: const Text('Delete', style: TextStyle(color: Colors.red)),
                                       ),
@@ -173,13 +241,17 @@ class _SetExpensePageState extends State<SetExpensePage> {
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.black,
         shape: const CircleBorder(),
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          final result = await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => const AddSetExpensePage(),
             ),
           );
+          if (result != null) {
+            // Reload the expenses after adding
+            await _loadPlannedExpenses();
+          }
         },
         child: const Icon(Icons.add, color: Colors.white, size: 32),
       ),
