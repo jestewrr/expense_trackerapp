@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'services/expense_service.dart';
 
 class CategoryAddExpensePage extends StatefulWidget {
   final String category;
@@ -17,12 +18,21 @@ class CategoryAddExpensePage extends StatefulWidget {
 class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
   final TextEditingController _amountController = TextEditingController();
   final TextEditingController _nameController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _nameController.dispose();
+    super.dispose();
+  }
 
   Future<void> _pickDate() async {
     DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime(2000),
       lastDate: DateTime(2100),
     );
@@ -30,6 +40,77 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
       setState(() {
         _selectedDate = picked;
       });
+    }
+  }
+
+  Future<void> _saveExpense() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_selectedDate == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a date'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final amount = double.tryParse(_amountController.text);
+      if (amount == null) {
+        throw Exception('Invalid amount');
+      }
+
+      final result = await ExpenseService.createExpense(
+        name: _nameController.text,
+        amount: amount,
+        category: widget.category,
+        categoryIcon: widget.icon,
+        date: _selectedDate!,
+      );
+
+      if (result['success']) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, result);
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error saving expense: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -74,11 +155,13 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
         ),
         centerTitle: true,
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8),
-          child: Column(
-            children: [
+      body: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8),
+            child: Column(
+              children: [
               // Amount field
               _buildInputField(
                 child: Row(
@@ -93,9 +176,18 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
+                      child: TextFormField(
                         controller: _amountController,
                         keyboardType: TextInputType.number,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter an amount';
+                          }
+                          if (double.tryParse(value) == null) {
+                            return 'Please enter a valid number';
+                          }
+                          return null;
+                        },
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
@@ -129,8 +221,14 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextField(
+                      child: TextFormField(
                         controller: _nameController,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a name';
+                          }
+                          return null;
+                        },
                         style: const TextStyle(fontSize: 16, color: Colors.black),
                         decoration: const InputDecoration(
                           border: InputBorder.none,
@@ -181,10 +279,7 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: Save logic
-                    Navigator.pop(context);
-                  },
+                  onPressed: _isLoading ? null : _saveExpense,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.lightBlue[200],
                     shape: RoundedRectangleBorder(
@@ -194,18 +289,28 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     elevation: 2,
                   ),
-                  child: const Text(
-                    "Save",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: Colors.black,
-                      letterSpacing: 1.05,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const SizedBox(
+                          height: 20,
+                          width: 20,
+                          child: CircularProgressIndicator(
+                            color: Colors.black,
+                            strokeWidth: 2,
+                          ),
+                        )
+                      : const Text(
+                          "Save",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: Colors.black,
+                            letterSpacing: 1.05,
+                          ),
+                        ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

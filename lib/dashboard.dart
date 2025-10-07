@@ -3,6 +3,11 @@ import 'loginpage.dart';
 import 'categoryclicked.dart';
 import 'expense_records.dart'; // Add this import
 import 'setexpense.dart'; // Add this import
+import 'services/auth_service.dart';
+import 'services/expense_service.dart';
+import 'services/planned_expense_service.dart';
+import 'models/user.dart';
+import 'models/expense.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -13,27 +18,19 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   int selectedTab = 3; // 0: Today, 1: Weekly, 2: Monthly, 3: Yearly
+  User? currentUser;
+  bool isLoading = true;
 
   // Add this at the top of your _DashboardPageState:
   final List<String> balanceOptions = ['Weekly', 'Monthly', 'Yearly'];
   int selectedBalanceOption = 0; // 0: Weekly, 1: Monthly, 2: Yearly
 
-  final List<double> balances = [400.00, 1200.00, 15000.00];
-  final List<String> dateRanges = [
-    'Oct 6, 2025 - Oct 12, 2025',
-    'Oct 1, 2025 - Oct 31, 2025',
-    'Jan 1, 2025 - Dec 31, 2025'
-  ];
-
   double totalBalance = 0.00;
-  double dailyExpense = 400.00;
+  double dailyExpense = 0.00;
+  List<Expense> allExpenses = [];
+  Map<String, List<Expense>> expensesByCategory = {};
 
-  List<Map<String, dynamic>> categories = [
-    {'icon': Icons.lunch_dining, 'label': 'Food', 'amount': '-\$100.00'},
-    {'icon': Icons.videogame_asset, 'label': 'Entertainment', 'amount': '-\$100.00'},
-    {'icon': Icons.shopping_bag, 'label': 'Shopping', 'amount': '-\$100.00'},
-    {'icon': Icons.flight, 'label': 'Travel', 'amount': '-\$100.00'},
-  ];
+  List<Map<String, dynamic>> categories = [];
 
   final List<IconData> availableIcons = [
     Icons.lunch_dining,
@@ -49,6 +46,172 @@ class _DashboardPageState extends State<DashboardPage> {
     Icons.book,
     Icons.sports_soccer,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Refresh data when returning from other pages
+    _refreshData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() {
+      isLoading = true;
+    });
+    
+    await _loadCurrentUser();
+    await _loadExpenseData();
+    
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  Future<void> _loadCurrentUser() async {
+    final user = await AuthService.getCurrentUser();
+    setState(() {
+      currentUser = user;
+    });
+  }
+
+  Future<void> _loadExpenseData() async {
+    try {
+      // Load all expenses
+      allExpenses = await ExpenseService.getAllExpenses();
+      
+      // Group expenses by category
+      expensesByCategory = await ExpenseService.getExpensesGroupedByCategory();
+      
+      // Calculate totals based on selected period
+      await _calculateBalances();
+      
+      // Build categories list with real data
+      _buildCategoriesList();
+    } catch (e) {
+      print('Error loading expense data: $e');
+    }
+  }
+
+  Future<void> _calculateBalances() async {
+    final now = DateTime.now();
+    DateTime rangeStart;
+    DateTime rangeEnd;
+    
+    switch (selectedBalanceOption) {
+      case 0: // Weekly
+        rangeStart = now.subtract(Duration(days: now.weekday - 1));
+        rangeEnd = rangeStart.add(const Duration(days: 7));
+        break;
+      case 1: // Monthly
+        rangeStart = DateTime(now.year, now.month, 1);
+        rangeEnd = DateTime(now.year, now.month + 1, 0);
+        break;
+      case 2: // Yearly
+        rangeStart = DateTime(now.year, 1, 1);
+        rangeEnd = DateTime(now.year, 12, 31);
+        break;
+      default:
+        rangeStart = DateTime(now.year, now.month, 1);
+        rangeEnd = DateTime(now.year, now.month + 1, 0);
+    }
+
+    // Use total planned budget for the selected period as Total Balance
+    try {
+      final plannedTotal = await PlannedExpenseService.getTotalBudgetForDateRange(
+        startDate: rangeStart,
+        endDate: rangeEnd,
+      );
+      final spentExpenses = await ExpenseService.getExpensesByDateRange(
+        startDate: rangeStart,
+        endDate: rangeEnd,
+      );
+      final spentTotal = spentExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+      totalBalance = (plannedTotal - spentTotal).clamp(0.0, double.infinity);
+    } catch (_) {
+      totalBalance = 0.0;
+    }
+    
+    // Calculate daily expense (today's total)
+    final todaysExpenses = await ExpenseService.getTodaysExpenses();
+    dailyExpense = todaysExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
+  }
+
+  void _buildCategoriesList() {
+    categories.clear();
+    
+    // Get unique categories from expenses
+    final Set<String> uniqueCategories = allExpenses.map((e) => e.category).toSet();
+    
+    for (final category in uniqueCategories) {
+      final categoryExpenses = expensesByCategory[category] ?? [];
+      final totalAmount = categoryExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
+      final icon = categoryExpenses.isNotEmpty ? categoryExpenses.first.categoryIcon : Icons.category;
+      
+      categories.add({
+        'icon': icon,
+        'label': category,
+        'amount': '-\$${totalAmount.toStringAsFixed(2)}',
+      });
+    }
+    
+    // Sort categories by amount (highest first)
+    categories.sort((a, b) {
+      final amountA = double.parse(a['amount'].toString().replaceAll(RegExp(r'[^0-9.-]'), ''));
+      final amountB = double.parse(b['amount'].toString().replaceAll(RegExp(r'[^0-9.-]'), ''));
+      return amountB.compareTo(amountA);
+    });
+  }
+
+  String _getDateRangeText() {
+    final now = DateTime.now();
+    
+    switch (selectedBalanceOption) {
+      case 0: // Weekly
+        final weekStart = now.subtract(Duration(days: now.weekday - 1));
+        final weekEnd = weekStart.add(const Duration(days: 6));
+        return '${_formatDate(weekStart)} - ${_formatDate(weekEnd)}';
+      case 1: // Monthly
+        final monthStart = DateTime(now.year, now.month, 1);
+        final monthEnd = DateTime(now.year, now.month + 1, 0);
+        return '${_formatDate(monthStart)} - ${_formatDate(monthEnd)}';
+      case 2: // Yearly
+        final yearStart = DateTime(now.year, 1, 1);
+        final yearEnd = DateTime(now.year, 12, 31);
+        return '${_formatDate(yearStart)} - ${_formatDate(yearEnd)}';
+      default:
+        return '';
+    }
+  }
+
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
+  Future<void> _refreshData() async {
+    await _loadExpenseData();
+    setState(() {});
+  }
+
+  Future<void> _logout() async {
+    await AuthService.logout();
+    if (mounted) {
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+        (route) => false,
+      );
+    }
+  }
 
   void _showAddCategoryDialog() {
     String newLabel = '';
@@ -103,8 +266,9 @@ class _DashboardPageState extends State<DashboardPage> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 if (newLabel.trim().isNotEmpty && selectedIcon != null) {
+                  // Add the category to the list
                   setState(() {
                     categories.add({
                       'icon': selectedIcon,
@@ -113,6 +277,13 @@ class _DashboardPageState extends State<DashboardPage> {
                     });
                   });
                   Navigator.pop(context);
+                  // Show a message that category was added
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Category "$newLabel" added successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
                 }
               },
               child: const Text('Add'),
@@ -125,6 +296,17 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (isLoading) {
+      return const Scaffold(
+        backgroundColor: Colors.white,
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF5D5FEF)),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       floatingActionButton: FloatingActionButton(
@@ -171,10 +353,12 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
         ),
       ),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: RefreshIndicator(
+        onRefresh: _refreshData,
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
             // Top Welcome + piggy + logout
             Padding(
               padding:
@@ -189,28 +373,30 @@ class _DashboardPageState extends State<DashboardPage> {
                       const SizedBox(width: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Text('Welcome!',
+                        children: [
+                          const Text('Welcome!',
                               style: TextStyle(
                                   fontSize: 14, color: Colors.black54)),
-                          Text('John Doe',
-                              style: TextStyle(
+                          Text(currentUser?.username ?? 'User',
+                              style: const TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 16)),
                         ],
                       ),
                     ],
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.black),
-                    tooltip: 'Logout',
-                    onPressed: () {
-                      Navigator.pushAndRemoveUntil(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => const LoginPage()),
-                        (route) => false,
-                      );
-                    },
+                  Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.refresh, color: Colors.black),
+                        tooltip: 'Refresh',
+                        onPressed: _refreshData,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.logout, color: Colors.black),
+                        tooltip: 'Logout',
+                        onPressed: _logout,
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -258,10 +444,11 @@ class _DashboardPageState extends State<DashboardPage> {
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
-                        onChanged: (String? newValue) {
+                        onChanged: (String? newValue) async {
                           setState(() {
                             selectedBalanceOption = balanceOptions.indexOf(newValue!);
                           });
+                          await _calculateBalances();
                         },
                         items: balanceOptions.map((String option) {
                           return DropdownMenuItem<String>(
@@ -274,7 +461,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    "\$ ${balances[selectedBalanceOption].toStringAsFixed(2)}",
+                    "\$ ${totalBalance.toStringAsFixed(2)}",
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 36,
@@ -307,7 +494,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
-                      dateRanges[selectedBalanceOption],
+                      _getDateRangeText(),
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15,
@@ -400,33 +587,10 @@ class _DashboardPageState extends State<DashboardPage> {
           ],
         ),
       ),
+    ),
     );
   }
 
-  Widget _buildTab(String label, int index) {
-    final bool selected = selectedTab == index;
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          selectedTab = index;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? Colors.lightBlue[200] : Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Colors.lightBlue[200]!),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected ? Colors.black : Colors.black54,
-            fontWeight: FontWeight.bold,
-            fontSize: 16,
-          ),
-        ),
-      ),
-    );
-  }
 }
+
+
