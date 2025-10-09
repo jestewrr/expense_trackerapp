@@ -64,7 +64,7 @@ class OnboardLoginPage extends StatelessWidget {
                     elevation: 0, // remove shadow
                     backgroundColor: const Color.fromARGB(255, 70, 188, 243), // light blue
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(28),
+                      borderRadius: BorderRadius.circular(20),
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 18),
                   ),

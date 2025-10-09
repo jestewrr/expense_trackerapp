@@ -31,6 +31,38 @@
 
   <title>expense_tracker_application</title>
   <link rel="manifest" href="manifest.json">
+  
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-analytics-compat.js"></script>
+  
+  <!-- Firebase Configuration -->
+  <script>
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyDdEL9f8n33UbXni6NRqeqBoWIfdjU3VAo",
+      authDomain: "expensetracker-9bb87.firebaseapp.com",
+      projectId: "expensetracker-9bb87",
+      storageBucket: "expensetracker-9bb87.firebasestorage.app",
+      messagingSenderId: "8264121967",
+      appId: "1:8264121967:web:d6cb44ab52018d1e2b179a",
+      measurementId: "G-S18VYG29E7"
+    };
+
+    // Initialize Firebase with error handling
+    try {
+      firebase.initializeApp(firebaseConfig);
+      console.log('Firebase initialized successfully');
+      
+      // Initialize Analytics (optional)
+      firebase.analytics();
+    } catch (error) {
+      console.error('Firebase initialization error:', error);
+    }
+  </script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

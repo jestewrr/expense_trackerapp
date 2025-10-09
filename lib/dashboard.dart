@@ -5,6 +5,7 @@ import 'expense_records.dart'; // Add this import
 import 'setexpense.dart'; // Add this import
 import 'notifications.dart'; // Add this import
 import 'services/auth_service.dart';
+import 'services/firebase_auth_service.dart';
 import 'services/expense_service.dart';
 import 'services/planned_expense_service.dart';
 import 'services/category_service.dart';
@@ -63,23 +64,50 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _loadData() async {
-    setState(() {
-      isLoading = true;
-    });
-    
-    await _loadCurrentUser();
-    await _loadExpenseData();
-    
-    setState(() {
-      isLoading = false;
-    });
+    try {
+      setState(() {
+        isLoading = true;
+      });
+      
+      await _loadCurrentUser();
+      await _loadExpenseData();
+      
+      setState(() {
+        isLoading = false;
+      });
+    } catch (e) {
+      print('Error loading dashboard data: $e');
+      setState(() {
+        isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadCurrentUser() async {
-    final user = await AuthService.getCurrentUser();
-    setState(() {
-      currentUser = user;
-    });
+    try {
+      final firebaseAuth = FirebaseAuthService();
+      final currentUserId = firebaseAuth.currentUserId;
+      
+      if (currentUserId != null) {
+        final userData = await firebaseAuth.getUserData(currentUserId);
+        if (userData != null) {
+          final user = User(
+            id: userData['uid'] ?? currentUserId,
+            username: userData['username'] ?? 'User',
+            email: userData['email'] ?? '',
+            password: '', // Don't store password in User model
+            createdAt: userData['createdAt'] != null 
+                ? (userData['createdAt'] as dynamic).toDate() 
+                : DateTime.now(),
+          );
+          setState(() {
+            currentUser = user;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading current user: $e');
+    }
   }
 
   Future<void> _loadExpenseData() async {
@@ -187,15 +215,16 @@ class _DashboardPageState extends State<DashboardPage> {
         final categoryName = category['label'] as String;
         final categoryExpenses = expensesByCategory[categoryName] ?? [];
         final totalAmount = categoryExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
+        final iconCodePoint = category['icon'] as int;
         final icon = IconData(
-          category['icon'] as int,
+          iconCodePoint,
           fontFamily: category['iconFamily'] as String? ?? 'MaterialIcons',
         );
         
         categories.add({
           'icon': icon,
           'label': categoryName,
-          'amount': '-₱${totalAmount.toStringAsFixed(2)}',
+          'amount': '₱${totalAmount.toStringAsFixed(2)}',
         });
       }
       
@@ -245,7 +274,8 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Future<void> _logout() async {
-    await AuthService.logout();
+    final FirebaseAuthService firebaseAuth = FirebaseAuthService();
+    await firebaseAuth.signOut();
     if (mounted) {
       Navigator.pushAndRemoveUntil(
         context,
@@ -265,7 +295,7 @@ class _DashboardPageState extends State<DashboardPage> {
         return AlertDialog(
           backgroundColor: Colors.purple[50],
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(20),
           ),
           title: const Text('Add Category'),
           content: StatefulBuilder(
@@ -374,7 +404,7 @@ class _DashboardPageState extends State<DashboardPage> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.blue[50],
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.black,
         shape: const CircleBorder(),
@@ -392,7 +422,7 @@ class _DashboardPageState extends State<DashboardPage> {
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
-        color: const Color(0xFFDAD6F7),
+        color: Colors.blue[100],
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 40.0),
           child: Row(
@@ -442,7 +472,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   Row(
                     children: [
                       const Icon(Icons.savings,
-                          size: 36, color: Color(0xFF5D5FEF)),
+                          size: 36, color: Colors.black),
                       const SizedBox(width: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,9 +480,10 @@ class _DashboardPageState extends State<DashboardPage> {
                           const Text('Welcome!',
                               style: TextStyle(
                                   fontSize: 14, color: Colors.black54)),
-                          Text(currentUser?.username ?? 'User',
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 16)),
+                          Text(
+                            isLoading ? 'Loading...' : (currentUser?.username ?? 'User'),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16)),
                         ],
                       ),
                     ],
@@ -481,11 +512,11 @@ class _DashboardPageState extends State<DashboardPage> {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
               decoration: BoxDecoration(
-                color: const Color.fromARGB(255, 110, 131, 208),
-                borderRadius: BorderRadius.circular(28),
+                color: Colors.blue[100],
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.blue.withOpacity(0.08),
+                    color: Colors.blue.withOpacity(0.1),
                     blurRadius: 12,
                     offset: const Offset(0, 6),
                   ),
@@ -499,8 +530,8 @@ class _DashboardPageState extends State<DashboardPage> {
                     children: [
                       const Text(
                         "Total Expense",
-                        style: TextStyle(
-                          color: Colors.white,
+                        style: const TextStyle(
+                          color: Colors.black,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1.1,
@@ -509,11 +540,11 @@ class _DashboardPageState extends State<DashboardPage> {
                       const SizedBox(width: 10),
                       DropdownButton<String>(
                         value: expenseOptions[selectedExpenseOption],
-                        dropdownColor: const Color(0xFF8EA7FF),
-                        icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                        dropdownColor: Colors.blue[100],
+                        icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
                         underline: const SizedBox(),
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: Colors.black,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -536,7 +567,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   Text(
                     "₱${totalExpense.toStringAsFixed(2)}",
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1.2,
@@ -545,8 +576,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 10),
                   const Text(
                     "Daily Expenses",
-                    style: TextStyle(
-                      color: Colors.white70,
+                    style: const TextStyle(
+                      color: Colors.black54,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -554,7 +585,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   Text(
                     "₱${dailyExpense.toStringAsFixed(2)}",
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: Colors.black,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -563,13 +594,13 @@ class _DashboardPageState extends State<DashboardPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.12),
+                      color: Colors.blue[200],
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
                       _getDateRangeText(),
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: Colors.black,
                         fontSize: 15,
                         fontWeight: FontWeight.w500,
                         letterSpacing: 1.05,
@@ -630,7 +661,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       padding: const EdgeInsets.symmetric(
                           horizontal: 20, vertical: 24),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFDAD6F7),
+                        color: Colors.blue[100],
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Row(

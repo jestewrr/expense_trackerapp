@@ -281,7 +281,7 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
                   height: 5,
                   decoration: BoxDecoration(
                     color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
@@ -347,7 +347,7 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.blue[50],
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -504,7 +504,7 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.blue.withOpacity(0.08),
@@ -816,7 +816,7 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.blue[50],
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8),
@@ -916,7 +916,7 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _updateExpense,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.lightBlue[300],
+                    backgroundColor: Colors.blue.shade600,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
@@ -969,7 +969,7 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
                     );
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red[300],
+                    backgroundColor: Colors.red.shade600,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),

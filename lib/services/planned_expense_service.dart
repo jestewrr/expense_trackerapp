@@ -1,37 +1,42 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/planned_expense.dart';
 import 'expense_service.dart';
-import 'auth_service.dart';
+import 'firebase_auth_service.dart';
 
 class PlannedExpenseService {
-  static const String _plannedExpensesKeyPrefix = 'planned_expenses_';
-
-  // Get user-specific storage key
-  static Future<String> _getUserPlannedExpensesKey() async {
-    final currentUser = await AuthService.getCurrentUser();
-    if (currentUser == null) {
-      throw Exception('No user logged in');
-    }
-    return '$_plannedExpensesKeyPrefix${currentUser.id}';
+  // Get current user ID from Firebase Auth
+  static Future<String?> _getCurrentUserId() async {
+    final firebaseAuth = FirebaseAuthService();
+    return firebaseAuth.currentUserId;
   }
 
   // Get all planned expenses
   static Future<List<PlannedExpense>> getAllPlannedExpenses() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userPlannedExpensesKey = await _getUserPlannedExpensesKey();
-      final expensesJson = prefs.getString(userPlannedExpensesKey);
-      
-      if (expensesJson == null) {
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        print('No user logged in, returning empty planned expenses list');
         return [];
       }
 
-      final List<dynamic> expensesList = json.decode(expensesJson);
-      final expenses = expensesList.map((expenseJson) => PlannedExpense.fromJson(expenseJson)).toList();
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('planned_expenses')
+          .where('userId', isEqualTo: userId)
+          .get();
+
+      final expenses = querySnapshot.docs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id;
+        return PlannedExpense.fromJson(data);
+      }).toList();
+      
+      // Sort by start date descending
+      expenses.sort((a, b) => b.startDate.compareTo(a.startDate));
+      
       return expenses;
     } catch (e) {
+      print('Error getting planned expenses: $e');
       return [];
     }
   }
@@ -62,25 +67,37 @@ class PlannedExpenseService {
     List<String> categories = const [],
   }) async {
     try {
-      final expenses = await getAllPlannedExpenses();
-      
-      final newExpense = PlannedExpense(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        category: category,
-        cost: cost,
-        startDate: startDate,
-        endDate: endDate,
-        totalBudget: totalBudget,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-        items: items,
-        categories: categories.isNotEmpty ? categories : [category],
-        notes: notes,
-      );
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        return {
+          'success': false,
+          'message': 'No user logged in',
+        };
+      }
 
-      expenses.add(newExpense);
-      await _savePlannedExpenses(expenses);
+      final plannedExpenseData = {
+        'name': name,
+        'category': category,
+        'cost': cost,
+        'startDate': startDate.toIso8601String(),
+        'endDate': endDate.toIso8601String(),
+        'totalBudget': totalBudget,
+        'createdAt': DateTime.now().toIso8601String(),
+        'updatedAt': DateTime.now().toIso8601String(),
+        'items': items.map((item) => item.toJson()).toList(),
+        'categories': categories.isNotEmpty ? categories : [category],
+        'notes': notes,
+        'userId': userId, // This is the key field that was missing!
+      };
+
+      // Add to Firestore
+      final docRef = await FirebaseFirestore.instance
+          .collection('planned_expenses')
+          .add(plannedExpenseData);
+
+      // Create PlannedExpense object for return
+      plannedExpenseData['id'] = docRef.id;
+      final newExpense = PlannedExpense.fromJson(plannedExpenseData);
 
       return {
         'success': true,
@@ -88,6 +105,7 @@ class PlannedExpenseService {
         'expense': newExpense,
       };
     } catch (e) {
+      print('Error creating planned expense: $e');
       return {
         'success': false,
         'message': 'Failed to create planned expense: ${e.toString()}',
@@ -109,31 +127,49 @@ class PlannedExpenseService {
     List<String> categories = const [],
   }) async {
     try {
-      final expenses = await getAllPlannedExpenses();
-      final index = expenses.indexWhere((expense) => expense.id == id);
-      
-      if (index == -1) {
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        return {
+          'success': false,
+          'message': 'No user logged in',
+        };
+      }
+
+      final updateData = {
+        'name': name,
+        'category': category,
+        'cost': cost,
+        'startDate': startDate.toIso8601String(),
+        'endDate': endDate.toIso8601String(),
+        'totalBudget': totalBudget,
+        'updatedAt': DateTime.now().toIso8601String(),
+        'items': items.map((item) => item.toJson()).toList(),
+        'categories': categories.isNotEmpty ? categories : [category],
+        'notes': notes,
+      };
+
+      // Update in Firestore
+      await FirebaseFirestore.instance
+          .collection('planned_expenses')
+          .doc(id)
+          .update(updateData);
+
+      // Get updated document
+      final doc = await FirebaseFirestore.instance
+          .collection('planned_expenses')
+          .doc(id)
+          .get();
+
+      if (!doc.exists) {
         return {
           'success': false,
           'message': 'Planned expense not found',
         };
       }
 
-      final updatedExpense = expenses[index].copyWith(
-        name: name,
-        category: category,
-        cost: cost,
-        startDate: startDate,
-        endDate: endDate,
-        totalBudget: totalBudget,
-        updatedAt: DateTime.now(),
-        items: items,
-        categories: categories.isNotEmpty ? categories : expenses[index].categories,
-        notes: notes,
-      );
-
-      expenses[index] = updatedExpense;
-      await _savePlannedExpenses(expenses);
+      final data = doc.data()!;
+      data['id'] = doc.id;
+      final updatedExpense = PlannedExpense.fromJson(data);
 
       return {
         'success': true,
@@ -141,6 +177,7 @@ class PlannedExpenseService {
         'expense': updatedExpense,
       };
     } catch (e) {
+      print('Error updating planned expense: $e');
       return {
         'success': false,
         'message': 'Failed to update planned expense: ${e.toString()}',
@@ -155,39 +192,57 @@ class PlannedExpenseService {
     required bool isPurchased,
   }) async {
     try {
-      final expenses = await getAllPlannedExpenses();
-      final index = expenses.indexWhere((expense) => expense.id == plannedExpenseId);
-      if (index == -1) {
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        return {'success': false, 'message': 'No user logged in'};
+      }
+
+      // Get the planned expense
+      final doc = await FirebaseFirestore.instance
+          .collection('planned_expenses')
+          .doc(plannedExpenseId)
+          .get();
+
+      if (!doc.exists) {
         return {'success': false, 'message': 'Planned expense not found'};
       }
 
-      final pe = expenses[index];
-      final items = pe.items.map((it) {
+      final data = doc.data()!;
+      final items = (data['items'] as List).map((item) => PlannedExpenseItem.fromJson(item)).toList();
+      
+      // Update the specific item
+      final updatedItems = items.map((it) {
         if (it.id == itemId) {
           return it.copyWith(isPurchased: isPurchased, purchasedAt: isPurchased ? DateTime.now() : null);
         }
         return it;
       }).toList();
 
-      final updated = pe.copyWith(items: items, updatedAt: DateTime.now());
-      expenses[index] = updated;
-      await _savePlannedExpenses(expenses);
+      // Update in Firestore
+      await FirebaseFirestore.instance
+          .collection('planned_expenses')
+          .doc(plannedExpenseId)
+          .update({
+        'items': updatedItems.map((item) => item.toJson()).toList(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
 
       // If purchased, also add to actual expenses for charts
       if (isPurchased) {
-        final item = items.firstWhere((i) => i.id == itemId);
+        final item = updatedItems.firstWhere((i) => i.id == itemId);
         await ExpenseService.createExpense(
           name: item.name,
           amount: item.cost,
-          category: item.category.isNotEmpty ? item.category : pe.category,
+          category: item.category.isNotEmpty ? item.category : data['category'],
           categoryIcon: Icons.checklist,
           date: DateTime.now(),
-          description: 'Purchased from plan: ${pe.name}',
+          description: 'Purchased from plan: ${data['name']}',
         );
       }
 
       return {'success': true, 'message': 'Item updated successfully'};
     } catch (e) {
+      print('Error toggling item purchased: $e');
       return {'success': false, 'message': 'Failed to update item: ${e.toString()}'};
     }
   }
@@ -200,24 +255,46 @@ class PlannedExpenseService {
     required String category,
   }) async {
     try {
-      final expenses = await getAllPlannedExpenses();
-      final index = expenses.indexWhere((expense) => expense.id == plannedExpenseId);
-      if (index == -1) {
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        return {'success': false, 'message': 'No user logged in'};
+      }
+
+      // Get the planned expense
+      final doc = await FirebaseFirestore.instance
+          .collection('planned_expenses')
+          .doc(plannedExpenseId)
+          .get();
+
+      if (!doc.exists) {
         return {'success': false, 'message': 'Planned expense not found'};
       }
 
-      final pe = expenses[index];
+      final data = doc.data()!;
+      final items = (data['items'] as List).map((item) => PlannedExpenseItem.fromJson(item)).toList();
+      
       final newItem = PlannedExpenseItem(
         id: DateTime.now().microsecondsSinceEpoch.toString(),
         name: name,
         cost: cost,
         category: category,
       );
-      final updated = pe.copyWith(items: [...pe.items, newItem], updatedAt: DateTime.now());
-      expenses[index] = updated;
-      await _savePlannedExpenses(expenses);
+
+      // Add new item to the list
+      items.add(newItem);
+
+      // Update in Firestore
+      await FirebaseFirestore.instance
+          .collection('planned_expenses')
+          .doc(plannedExpenseId)
+          .update({
+        'items': items.map((item) => item.toJson()).toList(),
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
       return {'success': true, 'message': 'Item added', 'item': newItem};
     } catch (e) {
+      print('Error adding item: $e');
       return {'success': false, 'message': 'Failed to add item: ${e.toString()}'};
     }
   }
@@ -225,24 +302,26 @@ class PlannedExpenseService {
   // Delete planned expense
   static Future<Map<String, dynamic>> deletePlannedExpense(String id) async {
     try {
-      final expenses = await getAllPlannedExpenses();
-      final index = expenses.indexWhere((expense) => expense.id == id);
-      
-      if (index == -1) {
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
         return {
           'success': false,
-          'message': 'Planned expense not found',
+          'message': 'No user logged in',
         };
       }
 
-      expenses.removeAt(index);
-      await _savePlannedExpenses(expenses);
+      // Delete from Firestore
+      await FirebaseFirestore.instance
+          .collection('planned_expenses')
+          .doc(id)
+          .delete();
 
       return {
         'success': true,
         'message': 'Planned expense deleted successfully',
       };
     } catch (e) {
+      print('Error deleting planned expense: $e');
       return {
         'success': false,
         'message': 'Failed to delete planned expense: ${e.toString()}',
@@ -335,13 +414,6 @@ class PlannedExpenseService {
     }
   }
 
-  // Save planned expenses to storage
-  static Future<void> _savePlannedExpenses(List<PlannedExpense> expenses) async {
-    final prefs = await SharedPreferences.getInstance();
-    final userPlannedExpensesKey = await _getUserPlannedExpensesKey();
-    final expensesJson = json.encode(expenses.map((expense) => expense.toJson()).toList());
-    await prefs.setString(userPlannedExpensesKey, expensesJson);
-  }
 }
 
 

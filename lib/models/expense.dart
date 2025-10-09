@@ -43,7 +43,7 @@ class Expense {
       name: json['name'],
       amount: json['amount'].toDouble(),
       category: json['category'],
-      categoryIcon: IconData(json['categoryIcon'], fontFamily: 'MaterialIcons'),
+      categoryIcon: IconData(json['categoryIcon'] as int, fontFamily: 'MaterialIcons'),
       date: DateTime.parse(json['date']),
       description: json['description'],
       createdAt: DateTime.parse(json['createdAt']),

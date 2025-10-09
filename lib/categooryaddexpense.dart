@@ -147,7 +147,7 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.blue[100],
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
             color: Colors.blue.withOpacity(0.08),
@@ -163,9 +163,9 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.blue[50],
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.blue[50],
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
@@ -308,7 +308,7 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _saveExpense,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.lightBlue[200],
+                    backgroundColor: Colors.blue.shade600,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                       side: const BorderSide(color: Colors.black12),

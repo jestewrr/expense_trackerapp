@@ -318,7 +318,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
         appBar: AppBar(
           title: const Text('Expense Records', style: TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.blue[50],
           foregroundColor: Colors.black,
           elevation: 0,
           leading: IconButton(
@@ -335,12 +335,13 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
     }
 
     return Scaffold(
+      backgroundColor: Colors.blue[50],
       appBar: AppBar(
         title: isSelectionMode 
           ? Text('${selectedExpenseIds.length} selected', style: const TextStyle(fontWeight: FontWeight.bold))
           : const Text('Expense Records', style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.blue[50],
         foregroundColor: Colors.black,
         elevation: 0,
         leading: isSelectionMode
@@ -429,7 +430,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
-                    borderRadius: BorderRadius.circular(18),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -528,7 +529,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
         decoration: BoxDecoration(
           color: selected ? Colors.lightBlue[200] : Colors.white,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.lightBlue[200]!),
         ),
         child: Text(
@@ -554,7 +555,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
           color: Colors.red,
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(20),
         ),
         child: const Icon(
           Icons.delete,
@@ -621,7 +622,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
             color: isSelected ? Colors.blue[300] : Colors.blue[100],
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             border: isSelected ? Border.all(color: Colors.blue[600]!, width: 2) : null,
           ),
           child: Row(

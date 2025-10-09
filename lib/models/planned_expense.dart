@@ -148,6 +148,21 @@ class PlannedExpense {
       notes: notes ?? this.notes, // <-- Add this line
     );
   }
+
+  // Calculate the remaining amount after deducting checked items
+  double get remainingAmount {
+    double checkedAmount = items
+        .where((item) => item.isPurchased)
+        .fold(0.0, (sum, item) => sum + item.cost);
+    return cost - checkedAmount;
+  }
+
+  // Calculate the total amount of checked items
+  double get checkedAmount {
+    return items
+        .where((item) => item.isPurchased)
+        .fold(0.0, (sum, item) => sum + item.cost);
+  }
 }
 
 final plannedExpense = PlannedExpense(

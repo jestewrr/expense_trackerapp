@@ -133,9 +133,10 @@ class _EditDeleteSetExpensePageState extends State<EditDeleteSetExpensePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.blue[50],
       appBar: AppBar(
         title: const Text('Edit Expense'),
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.blue[50],
         foregroundColor: Colors.black,
         elevation: 0,
         actions: [
