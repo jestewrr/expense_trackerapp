@@ -1,44 +1,66 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/expense_service.dart';
-import '../services/auth_service.dart';
+import '../services/firebase_auth_service.dart';
 
 class CategoryService {
-  static const String _categoriesKeyPrefix = 'user_categories_';
-
-  // Get user-specific storage key
-  static Future<String> _getUserCategoriesKey() async {
-    final currentUser = await AuthService.getCurrentUser();
-    if (currentUser == null) {
-      throw Exception('No user logged in');
-    }
-    return '$_categoriesKeyPrefix${currentUser.id}';
+  // Get current user ID from Firebase Auth
+  static Future<String?> _getCurrentUserId() async {
+    final firebaseAuth = FirebaseAuthService();
+    final userId = firebaseAuth.currentUserId;
+    print('Firebase Auth Service - Current User ID: $userId'); // Debug log
+    print('Firebase Auth Service - Is Signed In: ${firebaseAuth.isSignedIn}'); // Debug log
+    return userId;
   }
 
-  // Get all user-created categories
+  // Get all categories (default + user-created)
   static Future<List<Map<String, dynamic>>> getAllCategories() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final userCategoriesKey = await _getUserCategoriesKey();
-      final categoriesJson = prefs.getString(userCategoriesKey);
-      
-      if (categoriesJson == null) {
-        // If no categories exist, return empty list for new users
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        print('No user logged in, returning empty categories list');
         return [];
       }
 
-      final List<dynamic> categoriesList = json.decode(categoriesJson);
-      return categoriesList.map((categoryJson) {
-        final category = Map<String, dynamic>.from(categoryJson);
-        // Ensure icon is properly formatted for IconData reconstruction
-        if (category['icon'] != null) {
-          category['icon'] = category['icon'] as int;
+      List<Map<String, dynamic>> categories = [];
+
+      // Get default categories (isDefault = true, userId = null)
+      try {
+        final defaultCategoriesQuery = await FirebaseFirestore.instance
+            .collection('categories')
+            .where('isDefault', isEqualTo: true)
+            .get();
+
+        // Add default categories
+        for (var doc in defaultCategoriesQuery.docs) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          categories.add(data);
         }
-        return category;
-      }).toList();
+      } catch (e) {
+        print('Error getting default categories: $e');
+      }
+
+      // Get user-created categories
+      try {
+        final userCategoriesQuery = await FirebaseFirestore.instance
+            .collection('categories')
+            .where('userId', isEqualTo: userId)
+            .get();
+
+        // Add user categories
+        for (var doc in userCategoriesQuery.docs) {
+          final data = doc.data();
+          data['id'] = doc.id;
+          categories.add(data);
+        }
+      } catch (e) {
+        print('Error getting user categories: $e');
+      }
+
+      return categories;
     } catch (e) {
-      // Return empty list instead of default categories
+      print('Error getting categories: $e');
       return [];
     }
   }
@@ -50,10 +72,20 @@ class CategoryService {
     required IconData icon,
   }) async {
     try {
-      final categories = await getAllCategories();
+      final userId = await _getCurrentUserId();
+      print('Current user ID: $userId'); // Debug log
       
+      if (userId == null) {
+        print('No user ID found'); // Debug log
+        return {
+          'success': false,
+          'message': 'No user logged in',
+        };
+      }
+
       // Check if category already exists
-      if (categories.any((cat) => cat['label'] == label)) {
+      final existingCategories = await getAllCategories();
+      if (existingCategories.any((cat) => cat['label'] == label)) {
         return {
           'success': false,
           'message': 'Category already exists',
@@ -65,10 +97,21 @@ class CategoryService {
         'iconFamily': icon.fontFamily ?? 'MaterialIcons',
         'label': label,
         'amount': 0.0,
+        'userId': userId,
+        'isDefault': false,
+        'isActive': true,
+        'createdAt': DateTime.now().toIso8601String(),
       };
 
-      categories.add(newCategory);
-      await _saveCategories(categories);
+      print('Creating category with data: $newCategory'); // Debug log
+
+      // Add to Firestore
+      final docRef = await FirebaseFirestore.instance
+          .collection('categories')
+          .add(newCategory);
+
+      newCategory['id'] = docRef.id;
+      print('Category created successfully with ID: ${docRef.id}'); // Debug log
 
       return {
         'success': true,
@@ -76,6 +119,7 @@ class CategoryService {
         'category': newCategory,
       };
     } catch (e) {
+      print('Error adding category: $e'); // Debug log
       return {
         'success': false,
         'message': 'Failed to add category: ${e.toString()}',
@@ -86,26 +130,25 @@ class CategoryService {
   // Update category amounts based on expenses
   static Future<void> updateCategoryAmounts() async {
     try {
+      final userId = await _getCurrentUserId();
+      if (userId == null) return;
+
       final categories = await getAllCategories();
       final expensesByCategory = await ExpenseService.getExpensesGroupedByCategory();
       
-      for (int i = 0; i < categories.length; i++) {
-        final categoryName = categories[i]['label'];
+      for (var category in categories) {
+        final categoryName = category['label'];
         final categoryExpenses = expensesByCategory[categoryName] ?? [];
         final totalAmount = categoryExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
-        categories[i]['amount'] = totalAmount;
+        
+        // Update the category amount in Firestore
+        await FirebaseFirestore.instance
+            .collection('categories')
+            .doc(category['id'])
+            .update({'amount': totalAmount});
       }
-      
-      // Sort categories by amount (highest first)
-      categories.sort((a, b) {
-        final amountA = a['amount'] as double;
-        final amountB = b['amount'] as double;
-        return amountB.compareTo(amountA);
-      });
-      
-      await _saveCategories(categories);
     } catch (e) {
-      // Silently handle error - categories will still work with default amounts
+      print('Error updating category amounts: $e');
     }
   }
 
@@ -130,8 +173,9 @@ class CategoryService {
           'iconFamily': 'MaterialIcons',
         },
       );
+      final iconCodePoint = category['icon'] as int;
       return IconData(
-        category['icon'] as int,
+        iconCodePoint,
         fontFamily: category['iconFamily'] as String? ?? 'MaterialIcons',
       );
     } catch (e) {
@@ -139,11 +183,4 @@ class CategoryService {
     }
   }
 
-  // Save categories to storage
-  static Future<void> _saveCategories(List<Map<String, dynamic>> categories) async {
-    final prefs = await SharedPreferences.getInstance();
-    final userCategoriesKey = await _getUserCategoriesKey();
-    final categoriesJson = json.encode(categories);
-    await prefs.setString(userCategoriesKey, categoriesJson);
-  }
 }

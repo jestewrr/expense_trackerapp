@@ -183,16 +183,19 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
             const SizedBox(height: 16),
             // Main expense card
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFFE1BEE7), // Light purple/blue color
-                borderRadius: BorderRadius.circular(16),
+                gradient: LinearGradient(
+                  colors: [Colors.blue[50]!, Colors.blue[100]!],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 4,
-                    offset: const Offset(0, 2),
+                    color: Colors.blue.withOpacity(0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
                   ),
                 ],
               ),
@@ -202,135 +205,239 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                   // Expense name
                   Text(
                     exp.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 20,
-                      color: Colors.black,
+                      fontSize: 22,
+                      color: Colors.blue[800],
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  // Category, icon, and date
+                  const SizedBox(height: 16),
+                  // Category, icon, amount, and date in one row
                   Row(
                     children: [
-                      Icon(_getCategoryIcon(exp.category), size: 24, color: Colors.black),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          exp.category,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 16,
-                            color: Colors.black,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatDate(exp.startDate),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Total cost with remaining amount calculation
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          // Original total
-                          Text(
-                            "Total: ₱${exp.cost.toStringAsFixed(2)}",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                              color: Colors.black54,
-                            ),
-                          ),
-                          // Remaining amount
-                          Text(
-                            "Remaining: ₱${_calculateRemainingAmount(exp).toStringAsFixed(2)}",
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 18,
-                              color: _calculateRemainingAmount(exp) > 0 ? Colors.green[700] : Colors.red[700],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  // Checklist details
-                  if (exp.items.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    const Text(
-                      "Checklist details:",
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                        color: Colors.black,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...exp.items.map((item) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: GestureDetector(
-                        onTap: () async {
-                          // Toggle the item's purchased state
-                          final result = await PlannedExpenseService.toggleItemPurchased(
-                            plannedExpenseId: exp.id,
-                            itemId: item.id,
-                            isPurchased: !item.isPurchased,
-                          );
-                          
-                          if (result['success']) {
-                            // Reload the data to reflect changes
-                            await _loadData();
-                            setState(() {});
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(result['message']),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        },
-                        child: Row(
-                          children: [
-                            Icon(
-                              item.isPurchased ? Icons.check_box : Icons.check_box_outline_blank,
-                              size: 20,
-                              color: item.isPurchased ? Colors.green[700] : Colors.black,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                item.name,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: item.isPurchased ? Colors.green[700] : Colors.black87,
-                                  decoration: item.isPurchased ? TextDecoration.lineThrough : null,
-                                  fontWeight: item.isPurchased ? FontWeight.w500 : FontWeight.normal,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              "₱${item.cost.toStringAsFixed(2)}",
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: item.isPurchased ? Colors.green[700] : Colors.black87,
-                                fontWeight: item.isPurchased ? FontWeight.w500 : FontWeight.normal,
-                              ),
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
+                        child: Icon(
+                          _getCategoryIcon(exp.category),
+                          size: 24,
+                          color: Colors.blue[600],
+                        ),
                       ),
-                    )),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          exp.category,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              "₱${exp.remainingAmount.toStringAsFixed(2)}",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: Colors.blue[800],
+                              ),
+                            ),
+                            if (exp.items.isNotEmpty && exp.remainingAmount != exp.cost) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                "of ₱${exp.cost.toStringAsFixed(2)}",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          size: 16,
+                          color: Colors.blue[600],
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          _formatDate(exp.startDate),
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Checklist details
+                  if (exp.items.isNotEmpty) ...[
+                    const SizedBox(height: 20),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue[200]!),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.blue.withOpacity(0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.checklist,
+                                color: Colors.blue[600],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                "Checklist Items",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.blue[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          ...exp.items.map((item) => Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: item.isPurchased ? Colors.green[50] : Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: item.isPurchased ? Colors.green[200]! : Colors.grey[200]!,
+                              ),
+                            ),
+                            child: GestureDetector(
+                              onTap: () async {
+                                // Toggle the item's purchased state
+                                final result = await PlannedExpenseService.toggleItemPurchased(
+                                  plannedExpenseId: exp.id,
+                                  itemId: item.id,
+                                  isPurchased: !item.isPurchased,
+                                );
+                                
+                                if (result['success']) {
+                                  // Reload the data to reflect changes
+                                  await _loadData();
+                                  setState(() {});
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(result['message']),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Row(
+                                children: [
+                                  // Checkbox
+                                  Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: item.isPurchased ? Colors.green[600] : Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: item.isPurchased ? Colors.green[600]! : Colors.grey[400]!,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: Icon(
+                                      item.isPurchased ? Icons.check : Icons.check_box_outline_blank,
+                                      size: 16,
+                                      color: item.isPurchased ? Colors.white : Colors.grey[600],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  // Item name
+                                  Expanded(
+                                    child: Text(
+                                      item.name,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: item.isPurchased ? Colors.green[700] : Colors.black87,
+                                        decoration: item.isPurchased ? TextDecoration.lineThrough : null,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                  // Item amount
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                      color: item.isPurchased ? Colors.green[100] : Colors.blue[100],
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      "₱${item.cost.toStringAsFixed(2)}",
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: item.isPurchased ? Colors.green[700] : Colors.blue[700],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )),
+                        ],
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 20),
                   // Action buttons row

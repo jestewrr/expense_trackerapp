@@ -54,7 +54,7 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
                 controller: amountController,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.blue[100],
+                  fillColor: Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
@@ -68,7 +68,7 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
                 controller: nameController,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.blue[100],
+                  fillColor: Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
@@ -80,7 +80,7 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
                 controller: dateController,
                 decoration: InputDecoration(
                   filled: true,
-                  fillColor: Colors.blue[100],
+                  fillColor: Colors.white,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(30),
                   ),
@@ -93,7 +93,7 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.lightBlue[300],
+                    backgroundColor: Colors.blue.shade600,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),
@@ -109,7 +109,7 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red[300],
+                    backgroundColor: Colors.red.shade600,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
                     ),

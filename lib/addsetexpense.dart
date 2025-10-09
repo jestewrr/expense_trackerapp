@@ -58,6 +58,11 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
         if (_checklist.isNotEmpty) _showChecklist = true;
       }
     }
+    
+    // Add listener to amount controller to update remaining amount
+    _amountController.addListener(() {
+      setState(() {});
+    });
   }
 
   Future<void> _loadCategories() async {
@@ -96,6 +101,14 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
         _selectedDate = picked;
       });
     }
+  }
+
+  double _calculateRemainingAmount() {
+    final mainAmount = double.tryParse(_amountController.text) ?? 0.0;
+    final checkedAmount = _checklist
+        .where((item) => item.checked)
+        .fold(0.0, (sum, item) => sum + item.amount);
+    return mainAmount - checkedAmount;
   }
 
   Future<void> _savePlannedExpense() async {
@@ -246,153 +259,269 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
   Widget _buildChecklist() {
     return Container(
       margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.blue[100],
+        gradient: LinearGradient(
+          colors: [Colors.blue[50]!, Colors.blue[100]!],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
         borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.blue.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Spacer(),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text("Total: ₱${widget.initialExpense != null ? double.parse(widget.initialExpense!['amount'] ?? '0').toStringAsFixed(2) : '0.00'}", 
-                       style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.black54)),
-                  Text("Remaining: ₱${_calculateRemainingAmount().toStringAsFixed(2)}", 
-                       style: TextStyle(fontWeight: FontWeight.bold, color: _calculateRemainingAmount() > 0 ? Colors.green[700] : Colors.red[700])),
-                ],
+              Icon(
+                Icons.checklist,
+                color: Colors.blue[600],
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Checklist Items',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: Colors.blue[700],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
+          // Checklist items display
           ..._checklist.asMap().entries.map((entry) {
             final index = entry.key;
             final item = entry.value;
-            return Row(
-              children: [
-                // Undo button
-                GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _checklist.removeAt(index);
-                    });
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Icon(
-                      Icons.undo,
-                      size: 16,
-                      color: Colors.black,
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue[200]!),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  // Delete button
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _checklist.removeAt(index);
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red[200]!),
+                      ),
+                      child: Icon(
+                        Icons.delete_outline,
+                        size: 18,
+                        color: Colors.red[600],
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(item.name, style: const TextStyle(fontSize: 15)),
-                ),
-                Text("₱${item.amount.toStringAsFixed(2)}", style: const TextStyle(fontSize: 15)),
-              ],
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      item.name, 
+                      style: const TextStyle(
+                        fontSize: 15, 
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[100],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      "₱${item.amount.toStringAsFixed(2)}", 
+                      style: TextStyle(
+                        fontSize: 14, 
+                        fontWeight: FontWeight.bold,
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             );
           }),
-          Row(
-            children: [
-              const Text("Add more?", style: TextStyle(fontWeight: FontWeight.w500)),
-              IconButton(
-                icon: const Icon(Icons.add_circle_outline),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text("Add Checklist Item"),
-                      content: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextField(
-                            controller: _checklistNameController,
-                            decoration: const InputDecoration(labelText: "Name"),
+          const SizedBox(height: 16),
+          // Add more button
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue[200]!),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  Icons.add_circle_outline,
+                  color: Colors.blue[600],
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "Add more items?",
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.blue[700],
+                  ),
+                ),
+                const Spacer(),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: Row(
+                          children: [
+                            Icon(Icons.add_circle, color: Colors.blue[600]),
+                            const SizedBox(width: 8),
+                            const Text("Add Checklist Item"),
+                          ],
+                        ),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: _checklistNameController,
+                              decoration: InputDecoration(
+                                labelText: "Item Name",
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  borderSide: BorderSide(color: Colors.blue[200]!),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  borderSide: BorderSide(color: Colors.blue[200]!),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  borderSide: BorderSide(color: Colors.blue[400]!, width: 2),
+                                ),
+                                filled: true,
+                                fillColor: Colors.white,
+                                prefixIcon: const Icon(Icons.label_outline),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            TextField(
+                              controller: _checklistAmountController,
+                              decoration: InputDecoration(
+                                labelText: "Amount (₱)",
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  borderSide: BorderSide(color: Colors.blue[200]!),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  borderSide: BorderSide(color: Colors.blue[200]!),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                  borderSide: BorderSide(color: Colors.blue[400]!, width: 2),
+                                ),
+                                filled: true,
+                                fillColor: Colors.white,
+                                prefixIcon: const Icon(Icons.attach_money),
+                                prefixText: '₱ ',
+                              ),
+                              keyboardType: TextInputType.number,
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              _checklistNameController.clear();
+                              _checklistAmountController.clear();
+                              Navigator.pop(context);
+                            },
+                            child: const Text("Cancel"),
                           ),
-                          TextField(
-                            controller: _checklistAmountController,
-                            decoration: const InputDecoration(labelText: "Amount"),
-                            keyboardType: TextInputType.number,
+                          ElevatedButton(
+                            onPressed: () {
+                              final name = _checklistNameController.text.trim();
+                              final amount = double.tryParse(_checklistAmountController.text) ?? 0.0;
+                              final mainAmount = double.tryParse(_amountController.text) ?? 0.0;
+                              final currentTotal = _checklist.fold(0.0, (sum, item) => sum + item.amount);
+                              
+                              if (name.isEmpty || amount <= 0) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Please enter valid name and amount'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              if (currentTotal + amount > mainAmount) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Checklist total (${(currentTotal + amount).toStringAsFixed(2)}) cannot exceed main amount (${mainAmount.toStringAsFixed(2)})'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              
+                              setState(() {
+                                _checklist.add(ChecklistItem(name: name, amount: amount));
+                              });
+                              _checklistNameController.clear();
+                              _checklistAmountController.clear();
+                              Navigator.pop(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade600,
+                              foregroundColor: Colors.white,
+                            ),
+                            child: const Text("Add Item"),
                           ),
                         ],
                       ),
-                      actions: [
-                        TextButton(
-                          onPressed: () {
-                            _checklistNameController.clear();
-                            _checklistAmountController.clear();
-                            Navigator.pop(context);
-                          },
-                          child: const Text("Cancel"),
-                        ),
-                        ElevatedButton(
-                          onPressed: () {
-                            final name = _checklistNameController.text.trim();
-                            final amount = double.tryParse(_checklistAmountController.text) ?? 0.0;
-                            final mainAmount = double.tryParse(_amountController.text) ?? 0.0;
-                            final currentTotal = _checklist.fold(0.0, (sum, item) => sum + item.amount);
-                            
-                            if (name.isEmpty || amount <= 0) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please enter valid name and amount'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
-                            
-                            if (currentTotal + amount > mainAmount) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Checklist total (${(currentTotal + amount).toStringAsFixed(2)}) cannot exceed main amount (${mainAmount.toStringAsFixed(2)})'),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                              return;
-                            }
-                            
-                            setState(() {
-                              _checklist.add(ChecklistItem(name: name, amount: amount));
-                            });
-                            _checklistNameController.clear();
-                            _checklistAmountController.clear();
-                            Navigator.pop(context);
-                          },
-                          child: const Text("Add"),
-                        ),
-                      ],
+                    );
+                  },
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text("Add Item"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.blue[700],
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  );
-                },
-              ),
-              const Spacer(),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    _showChecklist = false;
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.lightBlue[200],
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
                 ),
-                child: const Text("Finish", style: TextStyle(color: Colors.black)),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),
@@ -432,48 +561,161 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Name and Amount fields
+            // Planned Payment Summary (Top Section) - Enhanced design
             Container(
               decoration: BoxDecoration(
-                color: Colors.blue[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              margin: const EdgeInsets.only(bottom: 18),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _nameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Name:',
-                        border: InputBorder.none,
-                      ),
-                    ),
+                gradient: LinearGradient(
+                  colors: [Colors.blue[50]!, Colors.blue[100]!],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.1),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _amountController,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(
-                        labelText: 'Amount:',
-                        border: InputBorder.none,
+                ],
+              ),
+              padding: const EdgeInsets.all(20),
+              margin: const EdgeInsets.only(bottom: 24),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _nameController,
+                          decoration: InputDecoration(
+                            labelText: 'Expense Name',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide(color: Colors.blue[200]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide(color: Colors.blue[200]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide(color: Colors.blue[400]!, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            labelStyle: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue[700],
+                            ),
+                          ),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: TextField(
+                          controller: _amountController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            labelText: 'Amount (₱)',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide(color: Colors.blue[200]!),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide(color: Colors.blue[200]!),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(30),
+                              borderSide: BorderSide(color: Colors.blue[400]!, width: 2),
+                            ),
+                            filled: true,
+                            fillColor: Colors.white,
+                            labelStyle: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.blue[700],
+                            ),
+                            prefixText: '₱ ',
+                            prefixStyle: TextStyle(
+                              color: Colors.blue[700],
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
+            // Show remaining amount if checklist is active
+            if (_showChecklist && _checklist.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.blue[200]!),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Remaining Amount:',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.blue[700],
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      '₱${_calculateRemainingAmount().toStringAsFixed(2)}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: _calculateRemainingAmount() > 0 ? Colors.green[700] : Colors.red[700],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             // Category dropdown
+            const SizedBox(height: 16),
+            Text(
+              'Category',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: Colors.blue[700],
+              ),
+            ),
             const SizedBox(height: 8),
-            const Text('Category', style: TextStyle(fontWeight: FontWeight.w500)),
             DropdownButtonFormField<String>(
               initialValue: _selectedCategory,
               items: _categories
                   .map((cat) => DropdownMenuItem(
                         value: cat,
-                        child: Text(cat),
+                        child: Text(
+                          cat,
+                          style: const TextStyle(fontWeight: FontWeight.w500),
+                        ),
                       ))
                   .toList(),
               onChanged: (val) {
@@ -481,114 +723,193 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
                   _selectedCategory = val;
                 });
               },
-              decoration: const InputDecoration(
-                border: UnderlineInputBorder(),
-                isDense: true,
-                contentPadding: EdgeInsets.symmetric(vertical: 8),
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: Colors.blue[200]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: Colors.blue[200]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: Colors.blue[400]!, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 24),
             // Date picker
-            Row(
-              children: [
-                const Text('Date:', style: TextStyle(fontWeight: FontWeight.w500)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: InkWell(
-                    onTap: _pickDate,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      decoration: const BoxDecoration(
-                        border: Border(bottom: BorderSide(color: Colors.black26)),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            _selectedDate == null
-                                ? ''
-                                : '${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const Spacer(),
-                          const Icon(Icons.calendar_today, size: 20),
-                        ],
+            Text(
+              'Date',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: Colors.blue[700],
+              ),
+            ),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _pickDate,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.blue[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.calendar_today,
+                      size: 20,
+                      color: Colors.blue[600],
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      _selectedDate == null
+                          ? 'Select Date'
+                          : '${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: _selectedDate == null ? Colors.grey[600] : Colors.blue[700],
                       ),
                     ),
-                  ),
+                    const Spacer(),
+                    Icon(
+                      Icons.arrow_drop_down,
+                      color: Colors.blue[600],
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 24),
             // Notes field
-            const Text('Notes:', style: TextStyle(fontWeight: FontWeight.w500)),
+            Text(
+              'Notes (Optional)',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: Colors.blue[700],
+              ),
+            ),
+            const SizedBox(height: 8),
             TextField(
               controller: _notesController,
-              maxLines: 2,
-              decoration: const InputDecoration(
-                border: UnderlineInputBorder(),
-                isDense: true,
+              maxLines: 3,
+              decoration: InputDecoration(
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: Colors.blue[200]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: Colors.blue[200]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(30),
+                  borderSide: BorderSide(color: Colors.blue[400]!, width: 2),
+                ),
+                filled: true,
+                fillColor: Colors.white,
+                hintText: 'Add any additional notes...',
+                hintStyle: TextStyle(color: Colors.grey[500]),
+                contentPadding: const EdgeInsets.all(16),
               ),
+              style: const TextStyle(fontWeight: FontWeight.w500),
             ),
-            const SizedBox(height: 18),
-            // Checklist button
-            Row(
-              children: [
-                const Text('Make this into a checklist?', style: TextStyle(fontWeight: FontWeight.w500)),
-                const Spacer(),
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      _showChecklist = !_showChecklist;
-                    });
-                  },
-                  borderRadius: BorderRadius.circular(24),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.lightBlue[200],
-                      shape: BoxShape.circle,
-                    ),
-                    padding: const EdgeInsets.all(10),
-                    child: Icon(
-                      _showChecklist ? Icons.remove : Icons.add,
-                      color: Colors.black,
-                      size: 28,
+            const SizedBox(height: 24),
+            // Checklist toggle
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.blue[200]!),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.blue.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.checklist,
+                    color: Colors.blue[600],
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Make this into a checklist?',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        color: Colors.blue[700],
+                      ),
                     ),
                   ),
-                ),
-              ],
+                  Switch(
+                    value: _showChecklist,
+                    onChanged: (value) {
+                      setState(() {
+                        _showChecklist = value;
+                      });
+                    },
+                    activeColor: Colors.blue[400],
+                    activeTrackColor: Colors.blue[200],
+                  ),
+                ],
+              ),
             ),
             if (_showChecklist) _buildChecklist(),
             const SizedBox(height: 24),
             // Save button
             Center(
               child: SizedBox(
-                width: 180,
+                width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _savePlannedExpense,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.lightBlue[200],
+                    backgroundColor: Colors.blue.shade600,
+                    foregroundColor: Colors.white,
+                    elevation: 4,
+                    shadowColor: Colors.blue.withOpacity(0.3),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      side: const BorderSide(color: Colors.black),
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: _isLoading
                       ? const SizedBox(
-                          height: 20,
-                          width: 20,
+                          height: 24,
+                          width: 24,
                           child: CircularProgressIndicator(
-                            color: Colors.black,
-                            strokeWidth: 2,
+                            color: Colors.white,
+                            strokeWidth: 2.5,
                           ),
                         )
-                      : const Text(
-                          'Save',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: Colors.black,
-                          ),
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.save, size: 20),
+                            const SizedBox(width: 8),
+                            const Text(
+                              'Save Planned Expense',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ],
                         ),
                 ),
               ),
@@ -600,9 +921,4 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
     );
   }
 
-  double _calculateRemainingAmount() {
-    final originalAmount = widget.initialExpense != null ? double.parse(widget.initialExpense!['amount'] ?? '0') : 0.0;
-    final checklistTotal = _checklist.fold(0.0, (sum, item) => sum + item.amount);
-    return originalAmount - checklistTotal;
-  }
 }

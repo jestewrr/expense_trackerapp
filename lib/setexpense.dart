@@ -144,9 +144,9 @@ class _SetExpensePageState extends State<SetExpensePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FB),
+      backgroundColor: Colors.blue[50],
       appBar: AppBar(
-        backgroundColor: const Color(0xFFF8F9FB),
+        backgroundColor: Colors.blue[50],
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
@@ -202,7 +202,7 @@ class _SetExpensePageState extends State<SetExpensePage> {
                         margin: const EdgeInsets.only(bottom: 16),
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE1BEE7), // Light purple/blue color
+                          color: Colors.blue[100], // Light blue color to match the theme
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
@@ -242,7 +242,7 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                   ),
                                 ),
                                 Text(
-                                  "-₱${exp.cost.toStringAsFixed(2)}",
+                                  "₱${exp.cost.toStringAsFixed(2)}",
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -359,7 +359,7 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                   child: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.3),
+                                      color: Colors.blue[200],
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: const Icon(
@@ -432,7 +432,7 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                   child: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.3),
+                                      color: Colors.blue[200],
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: const Icon(
@@ -490,7 +490,7 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                   child: Container(
                                     padding: const EdgeInsets.all(8),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.3),
+                                      color: Colors.blue[200],
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: const Icon(
@@ -509,7 +509,7 @@ class _SetExpensePageState extends State<SetExpensePage> {
                   },
                 ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFFB3E5FC),
+        backgroundColor: Colors.blue[100],
         shape: const CircleBorder(),
         onPressed: () async {
           final result = await Navigator.push(

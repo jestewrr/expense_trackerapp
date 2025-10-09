@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'services/auth_service.dart';
-import 'dashboard.dart';
+import 'services/firebase_auth_service.dart';
+import 'loginpage.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -19,6 +20,9 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _rePasswordController = TextEditingController();
+  
+  // Firebase auth service
+  final FirebaseAuthService _firebaseAuth = FirebaseAuthService();
   
   // Form key for validation
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -43,32 +47,30 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      final result = await AuthService.register(
-        username: _usernameController.text.trim(),
+      final result = await _firebaseAuth.registerWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
+        username: _usernameController.text.trim(),
       );
 
       if (result['success']) {
         if (mounted) {
+          // Sign out the user after registration so they need to log in
+          await _firebaseAuth.signOut();
+          
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['message']),
+              content: Text('${result['message']}. Please log in with your new account.'),
               backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
             ),
           );
           
-          // Set the current user session after successful registration
-          final user = result['user'];
-          if (user != null) {
-            await AuthService.setCurrentUser(user);
-          }
-          
-          // Navigate to dashboard after successful registration
+          // Navigate back to login page after successful registration
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
-              builder: (context) => const DashboardPage(),
+              builder: (context) => const LoginPage(),
             ),
           );
         }
@@ -104,16 +106,9 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        // Gradient background
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFFB3E5FC),
-              Color(0xFFE1F5FE),
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+        // Light blue background like the image
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
         ),
         child: Center(
           child: SingleChildScrollView(
@@ -136,7 +131,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade800,
+                      color: Colors.black,
                       letterSpacing: 1.2,
                     ),
                   ),
@@ -270,7 +265,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         child: Text(
                           "Login",
                           style: TextStyle(
-                            color: Colors.blue.shade800,
+                            color: Colors.black,
                             fontWeight: FontWeight.bold,
                             decoration: TextDecoration.underline,
                           ),
@@ -303,7 +298,7 @@ class _RegisterPageState extends State<RegisterPage> {
       obscureText: isPassword ? obscureText : false,
       validator: validator,
       decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.blue.shade700),
+        prefixIcon: Icon(icon, color: Colors.black),
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.black54),
         filled: true,
@@ -312,7 +307,15 @@ class _RegisterPageState extends State<RegisterPage> {
             const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: Colors.blue[200]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide(color: Colors.blue[200]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide(color: Colors.blue[400]!, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30),

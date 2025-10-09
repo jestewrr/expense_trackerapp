@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'registerpage.dart';
 import 'dashboard.dart';
 import 'services/auth_service.dart';
+import 'services/firebase_auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,15 +16,18 @@ class _LoginPageState extends State<LoginPage> {
   bool _isLoading = false;
   
   // Form controllers
-  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+  
+  // Firebase auth service
+  final FirebaseAuthService _firebaseAuth = FirebaseAuthService();
   
   // Form key for validation
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   @override
   void dispose() {
-    _usernameController.dispose();
+    _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -39,8 +43,9 @@ class _LoginPageState extends State<LoginPage> {
     });
 
     try {
-      final result = await AuthService.login(
-        username: _usernameController.text.trim(),
+      final result = await _firebaseAuth.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        
         password: _passwordController.text,
       );
 
@@ -85,16 +90,9 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        // Soft gradient background
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              Color(0xFFB3E5FC), // light blue
-              Color(0xFFE1F5FE), // very soft sky
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+        // Light blue background like the image
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
         ),
         child: Center(
           child: SingleChildScrollView(
@@ -115,23 +113,26 @@ class _LoginPageState extends State<LoginPage> {
                   // Title
                   Text(
                     "Save Expense",
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue.shade800,
+                      color: Colors.black,
                       letterSpacing: 1.2,
                     ),
                   ),
                   const SizedBox(height: 40),
 
-                  // Username field
+                  // Email field
                   _buildTextField(
-                    controller: _usernameController,
-                    hint: "Username",
-                    icon: Icons.person,
+                    controller: _emailController,
+                    hint: "Email",
+                    icon: Icons.email,
                     validator: (value) {
                       if (value == null || value.isEmpty) {
-                        return 'Please enter your username';
+                        return 'Please enter your email';
+                      }
+                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+                        return 'Please enter a valid email';
                       }
                       return null;
                     },
@@ -204,10 +205,10 @@ class _LoginPageState extends State<LoginPage> {
                             ),
                           );
                         },
-                        child: Text(
+                        child: const Text(
                           'Sign-up here',
                           style: TextStyle(
-                            color: Colors.blue.shade800,
+                            color: Colors.black,
                             fontWeight: FontWeight.bold,
                             decoration: TextDecoration.underline,
                           ),
@@ -238,7 +239,7 @@ class _LoginPageState extends State<LoginPage> {
       obscureText: isPassword ? _obscureText : false,
       validator: validator,
       decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.blue.shade700),
+        prefixIcon: Icon(icon, color: Colors.black),
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.black54),
         filled: true,
@@ -247,7 +248,15 @@ class _LoginPageState extends State<LoginPage> {
             const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: Colors.blue[200]!),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide(color: Colors.blue[200]!),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(30),
+          borderSide: BorderSide(color: Colors.blue[400]!, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(30),

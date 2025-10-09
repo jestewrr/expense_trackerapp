@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base href="/">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A new Flutter project.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="expense_tracker_application">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>expense_tracker_application</title>
+  <link rel="manifest" href="manifest.json">
+  
+  <!-- Debug script -->
+  <script>
+    console.log('HTML loaded');
+    window.addEventListener('load', function() {
+      console.log('Window loaded');
+    });
+    
+    window.addEventListener('error', function(e) {
+      console.error('Global error:', e);
+    });
+  </script>
+</head>
+<body>
+  <div id="loading" style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-family: Arial, sans-serif;">
+    <p>Loading Flutter app...</p>
+    <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin: 20px auto;"></div>
+  </div>
+  
+  <style>
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+  
+  <script src="flutter_bootstrap.js" async></script>
+  
+  <script>
+    // Hide loading screen when Flutter loads
+    window.addEventListener('flutter-first-frame', function() {
+      console.log('Flutter first frame loaded');
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
