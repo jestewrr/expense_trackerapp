@@ -1,6 +1,7 @@
 import 'package:expense_tracker_application/categooryaddexpense.dart';
 import 'package:flutter/material.dart';
 import 'services/expense_service.dart';
+import 'services/planned_expense_service.dart';
 import 'models/expense.dart';
 
 class CategoryClickedPage extends StatefulWidget {
@@ -21,6 +22,11 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
   List<Expense> expenses = [];
   bool _isLoading = true;
   double _totalAmount = 0.0;
+  double _dailyExpense = 0.0;
+  
+  // Add dropdown functionality like dashboard
+  final List<String> expenseOptions = ['Weekly', 'Monthly', 'Yearly'];
+  int selectedExpenseOption = 0; // 0: Weekly, 1: Monthly, 2: Yearly
 
   @override
   void initState() {
@@ -35,11 +41,15 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
 
     try {
       final categoryExpenses = await ExpenseService.getExpensesByCategory(widget.category);
-      final totalAmount = await ExpenseService.getTotalAmountForCategory(widget.category);
+      
+      // Calculate totals based on selected period for this category
+      await _calculateCategoryExpenses();
+      
+      // Calculate daily expense for this category
+      await _calculateDailyExpense();
       
       setState(() {
         expenses = categoryExpenses;
-        _totalAmount = totalAmount;
         _isLoading = false;
       });
     } catch (e) {
@@ -54,6 +64,90 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _calculateCategoryExpenses() async {
+    final now = DateTime.now();
+    DateTime rangeStart;
+    DateTime rangeEnd;
+    
+    switch (selectedExpenseOption) {
+      case 0: // Weekly
+        rangeStart = now.subtract(Duration(days: now.weekday - 1));
+        rangeEnd = rangeStart.add(const Duration(days: 7));
+        break;
+      case 1: // Monthly
+        rangeStart = DateTime(now.year, now.month, 1);
+        rangeEnd = DateTime(now.year, now.month + 1, 0);
+        break;
+      case 2: // Yearly
+        rangeStart = DateTime(now.year, 1, 1);
+        rangeEnd = DateTime(now.year, 12, 31);
+        break;
+      default:
+        rangeStart = DateTime(now.year, now.month, 1);
+        rangeEnd = DateTime(now.year, now.month + 1, 0);
+    }
+
+    // Calculate total expense for the selected period for this category
+    try {
+      final spentExpenses = await ExpenseService.getExpensesByDateRange(
+        startDate: rangeStart,
+        endDate: rangeEnd,
+      );
+      
+      // Filter expenses for this specific category
+      final categoryExpenses = spentExpenses.where(
+        (expense) => expense.category == widget.category
+      ).toList();
+      
+      _totalAmount = categoryExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
+    } catch (_) {
+      _totalAmount = 0.0;
+    }
+  }
+
+  Future<void> _calculateDailyExpense() async {
+    try {
+      // Get today's regular expenses for this category
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      
+      final todaysExpenses = await ExpenseService.getExpensesByDateRange(
+        startDate: startOfDay,
+        endDate: endOfDay,
+      );
+      
+      final categoryTodaysExpenses = todaysExpenses.where(
+        (expense) => expense.category == widget.category
+      ).toList();
+      
+      final regularExpenseTotal = categoryTodaysExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
+      
+      // Get today's planned expenses for this category
+      final plannedExpenses = await PlannedExpenseService.getPlannedExpensesByDateRange(
+        startDate: startOfDay,
+        endDate: endOfDay,
+      );
+      
+      // Calculate total from planned expenses that were purchased today for this category
+      double plannedExpenseTotal = 0.0;
+      for (final plannedExpense in plannedExpenses) {
+        for (final item in plannedExpense.items) {
+          if (item.isPurchased && item.purchasedAt != null && item.category == widget.category) {
+            final purchasedDate = item.purchasedAt!;
+            if (purchasedDate.isAfter(startOfDay) && purchasedDate.isBefore(endOfDay)) {
+              plannedExpenseTotal += item.cost;
+            }
+          }
+        }
+      }
+      
+      _dailyExpense = regularExpenseTotal + plannedExpenseTotal;
+    } catch (_) {
+      _dailyExpense = 0.0;
     }
   }
 
@@ -94,6 +188,35 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
 
   String _formatDate(DateTime date) {
     return "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}";
+  }
+
+  String _getDateRangeText() {
+    final now = DateTime.now();
+    
+    switch (selectedExpenseOption) {
+      case 0: // Weekly
+        final weekStart = now.subtract(Duration(days: now.weekday - 1));
+        final weekEnd = weekStart.add(const Duration(days: 6));
+        return '${_formatDateForRange(weekStart)} - ${_formatDateForRange(weekEnd)}';
+      case 1: // Monthly
+        final monthStart = DateTime(now.year, now.month, 1);
+        final monthEnd = DateTime(now.year, now.month + 1, 0);
+        return '${_formatDateForRange(monthStart)} - ${_formatDateForRange(monthEnd)}';
+      case 2: // Yearly
+        final yearStart = DateTime(now.year, 1, 1);
+        final yearEnd = DateTime(now.year, 12, 31);
+        return '${_formatDateForRange(yearStart)} - ${_formatDateForRange(yearEnd)}';
+      default:
+        return '';
+    }
+  }
+
+  String _formatDateForRange(DateTime date) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
   }
 
   Future<void> _navigateToEdit(Expense expense) async {
@@ -185,7 +308,7 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
               ),
               const SizedBox(height: 10),
               Text(
-                "Amount: \$${expense.amount.toStringAsFixed(2)}",
+                "Amount: ₱${expense.amount.toStringAsFixed(2)}",
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
@@ -258,7 +381,7 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
                 ],
               ),
             ),
-            // Balance Card
+            // Balance Card with dropdown and date range
             Center(
               child: Container(
                 margin: const EdgeInsets.symmetric(vertical: 10),
@@ -276,13 +399,43 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
                 ),
                 child: Column(
                   children: [
-                    const Text('Total Balance',
-                        style: TextStyle(
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('Total Expense',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18)),
+                        const SizedBox(width: 10),
+                        DropdownButton<String>(
+                          value: expenseOptions[selectedExpenseOption],
+                          dropdownColor: const Color(0xFF8EA7FF),
+                          icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                          underline: const SizedBox(),
+                          style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
-                            fontSize: 18)),
+                            fontSize: 16,
+                          ),
+                          onChanged: (String? newValue) async {
+                            setState(() {
+                              selectedExpenseOption = expenseOptions.indexOf(newValue!);
+                            });
+                            await _calculateCategoryExpenses();
+                            setState(() {});
+                          },
+                          items: expenseOptions.map((String option) {
+                            return DropdownMenuItem<String>(
+                              value: option,
+                              child: Text(option),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 8),
-                    Text('\$${_totalAmount.toStringAsFixed(2)}',
+                    Text('₱${_totalAmount.toStringAsFixed(2)}',
                         style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -290,8 +443,25 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
                     const SizedBox(height: 8),
                     const Text('Daily Expenses',
                         style: TextStyle(color: Colors.white, fontSize: 14)),
-                    const Text('\$ 400.00',
-                        style: TextStyle(color: Colors.white, fontSize: 16)),
+                    Text('₱${_dailyExpense.toStringAsFixed(2)}',
+                        style: const TextStyle(color: Colors.white, fontSize: 16)),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        _getDateRangeText(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 1.05,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -373,7 +543,7 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
                           const SizedBox(height: 6),
                           // Amount
                           Text(
-                            "\$ ${expense.amount.toStringAsFixed(2)}",
+                            "₱${expense.amount.toStringAsFixed(2)}",
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
@@ -471,6 +641,7 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
   late TextEditingController nameController;
   late TextEditingController dateController;
   DateTime? selectedDate;
+  TimeOfDay? selectedTime;
   bool _isLoading = false;
 
   @override
@@ -499,12 +670,39 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
       context: context,
       initialDate: selectedDate ?? DateTime.now(),
       firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      lastDate: DateTime.now(), // Only allow current and past dates
     );
+    
     if (picked != null) {
       setState(() {
         selectedDate = picked;
         dateController.text = _formatDate(picked);
+      });
+      // Automatically show time picker after date selection
+      await _pickTime();
+    }
+  }
+
+  Future<void> _pickTime() async {
+    TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: selectedTime ?? TimeOfDay.now(),
+    );
+    
+    if (picked != null) {
+      setState(() {
+        selectedTime = picked;
+        // Update the selected date with the chosen time
+        if (selectedDate != null) {
+          selectedDate = DateTime(
+            selectedDate!.year,
+            selectedDate!.month,
+            selectedDate!.day,
+            picked.hour,
+            picked.minute,
+          );
+          dateController.text = _formatDate(selectedDate!);
+        }
       });
     }
   }
@@ -662,7 +860,7 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
                   decoration: const InputDecoration(
                     border: InputBorder.none,
                     labelText: 'Amount:',
-                    prefixText: '\$',
+                    prefixText: '₱',
                   ),
                   keyboardType: TextInputType.number,
                 ),

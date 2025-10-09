@@ -68,6 +68,7 @@ class PlannedExpense {
   final DateTime updatedAt;
   final List<PlannedExpenseItem> items;
   final List<String> categories;
+  final String? notes; // <-- Add this line
 
   PlannedExpense({
     required this.id,
@@ -81,6 +82,7 @@ class PlannedExpense {
     required this.updatedAt,
     this.items = const [],
     this.categories = const [],
+    this.notes, // <-- Add this line
   });
 
   Map<String, dynamic> toJson() {
@@ -96,6 +98,7 @@ class PlannedExpense {
       'updatedAt': updatedAt.toIso8601String(),
       'items': items.map((e) => e.toJson()).toList(),
       'categories': categories,
+      'notes': notes, // <-- Add this line
     };
   }
 
@@ -112,6 +115,7 @@ class PlannedExpense {
       updatedAt: DateTime.parse(json['updatedAt']),
       items: (json['items'] as List?)?.map((e) => PlannedExpenseItem.fromJson(e)).toList() ?? const [],
       categories: (json['categories'] as List?)?.map((e) => e.toString()).toList() ?? const [],
+      notes: json['notes'], // <-- Add this line
     );
   }
 
@@ -127,6 +131,7 @@ class PlannedExpense {
     DateTime? updatedAt,
     List<PlannedExpenseItem>? items,
     List<String>? categories,
+    String? notes, // <-- Add this line
   }) {
     return PlannedExpense(
       id: id ?? this.id,
@@ -140,6 +145,31 @@ class PlannedExpense {
       updatedAt: updatedAt ?? this.updatedAt,
       items: items ?? this.items,
       categories: categories ?? this.categories,
+      notes: notes ?? this.notes, // <-- Add this line
     );
   }
 }
+
+final plannedExpense = PlannedExpense(
+  id: 'some-id',
+  name: 'Test',
+  category: 'Food',
+  cost: 100.0,
+  startDate: DateTime.now(),
+  endDate: DateTime.now(),
+  totalBudget: 100.0,
+  createdAt: DateTime.now(),
+  updatedAt: DateTime.now(),
+  items: [
+    PlannedExpenseItem(
+      id: 'item-id',
+      name: 'Burger',
+      cost: 50.0,
+      isPurchased: false,
+      purchasedAt: null,
+      category: 'Food',
+    ),
+  ],
+  categories: ['Food'],
+  notes: 'This is a note',
+);

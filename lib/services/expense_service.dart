@@ -2,15 +2,26 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/expense.dart';
+import '../services/auth_service.dart';
 
 class ExpenseService {
-  static const String _expensesKey = 'expenses';
+  static const String _expensesKeyPrefix = 'expenses_';
+
+  // Get user-specific storage key
+  static Future<String> _getUserExpensesKey() async {
+    final currentUser = await AuthService.getCurrentUser();
+    if (currentUser == null) {
+      throw Exception('No user logged in');
+    }
+    return '$_expensesKeyPrefix${currentUser.id}';
+  }
 
   // Get all expenses
   static Future<List<Expense>> getAllExpenses() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final expensesJson = prefs.getString(_expensesKey);
+      final userExpensesKey = await _getUserExpensesKey();
+      final expensesJson = prefs.getString(userExpensesKey);
       
       if (expensesJson == null) {
         return [];
@@ -235,7 +246,8 @@ class ExpenseService {
   // Save expenses to storage
   static Future<void> _saveExpenses(List<Expense> expenses) async {
     final prefs = await SharedPreferences.getInstance();
+    final userExpensesKey = await _getUserExpensesKey();
     final expensesJson = json.encode(expenses.map((expense) => expense.toJson()).toList());
-    await prefs.setString(_expensesKey, expensesJson);
+    await prefs.setString(userExpensesKey, expensesJson);
   }
 }

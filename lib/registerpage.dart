@@ -58,6 +58,12 @@ class _RegisterPageState extends State<RegisterPage> {
             ),
           );
           
+          // Set the current user session after successful registration
+          final user = result['user'];
+          if (user != null) {
+            await AuthService.setCurrentUser(user);
+          }
+          
           // Navigate to dashboard after successful registration
           Navigator.pushReplacement(
             context,
@@ -118,11 +124,10 @@ class _RegisterPageState extends State<RegisterPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                  // App logo icon
-                  Icon(
-                    Icons.savings, // Consistent with login page
-                    size: 140,
-                    color: Colors.blue.shade700,
+                  // App logo image (replace icon)
+                  Image.asset(
+                    "lib/images/pig.png",
+                    height: 140,
                   ),
                   const SizedBox(height: 20),
 

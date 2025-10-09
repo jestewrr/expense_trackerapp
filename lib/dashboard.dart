@@ -3,9 +3,11 @@ import 'loginpage.dart';
 import 'categoryclicked.dart';
 import 'expense_records.dart'; // Add this import
 import 'setexpense.dart'; // Add this import
+import 'notifications.dart'; // Add this import
 import 'services/auth_service.dart';
 import 'services/expense_service.dart';
 import 'services/planned_expense_service.dart';
+import 'services/category_service.dart';
 import 'models/user.dart';
 import 'models/expense.dart';
 
@@ -22,10 +24,10 @@ class _DashboardPageState extends State<DashboardPage> {
   bool isLoading = true;
 
   // Add this at the top of your _DashboardPageState:
-  final List<String> balanceOptions = ['Weekly', 'Monthly', 'Yearly'];
-  int selectedBalanceOption = 0; // 0: Weekly, 1: Monthly, 2: Yearly
+  final List<String> expenseOptions = ['Weekly', 'Monthly', 'Yearly'];
+  int selectedExpenseOption = 0; // 0: Weekly, 1: Monthly, 2: Yearly
 
-  double totalBalance = 0.00;
+  double totalExpense = 0.00;
   double dailyExpense = 0.00;
   List<Expense> allExpenses = [];
   Map<String, List<Expense>> expensesByCategory = {};
@@ -89,21 +91,21 @@ class _DashboardPageState extends State<DashboardPage> {
       expensesByCategory = await ExpenseService.getExpensesGroupedByCategory();
       
       // Calculate totals based on selected period
-      await _calculateBalances();
+      await _calculateExpenses();
       
       // Build categories list with real data
-      _buildCategoriesList();
+      await _buildCategoriesList();
     } catch (e) {
       print('Error loading expense data: $e');
     }
   }
 
-  Future<void> _calculateBalances() async {
+  Future<void> _calculateExpenses() async {
     final now = DateTime.now();
     DateTime rangeStart;
     DateTime rangeEnd;
     
-    switch (selectedBalanceOption) {
+    switch (selectedExpenseOption) {
       case 0: // Weekly
         rangeStart = now.subtract(Duration(days: now.weekday - 1));
         rangeEnd = rangeStart.add(const Duration(days: 7));
@@ -121,57 +123,97 @@ class _DashboardPageState extends State<DashboardPage> {
         rangeEnd = DateTime(now.year, now.month + 1, 0);
     }
 
-    // Use total planned budget for the selected period as Total Balance
+    // Calculate total expense for the selected period
     try {
-      final plannedTotal = await PlannedExpenseService.getTotalBudgetForDateRange(
-        startDate: rangeStart,
-        endDate: rangeEnd,
-      );
       final spentExpenses = await ExpenseService.getExpensesByDateRange(
         startDate: rangeStart,
         endDate: rangeEnd,
       );
-      final spentTotal = spentExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
-      totalBalance = (plannedTotal - spentTotal).clamp(0.0, double.infinity);
+      totalExpense = spentExpenses.fold<double>(0.0, (sum, e) => sum + e.amount);
     } catch (_) {
-      totalBalance = 0.0;
+      totalExpense = 0.0;
     }
     
-    // Calculate daily expense (today's total)
-    final todaysExpenses = await ExpenseService.getTodaysExpenses();
-    dailyExpense = todaysExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
+    // Calculate daily expense (today's total including planned expenses)
+    await _calculateDailyExpense();
   }
 
-  void _buildCategoriesList() {
-    categories.clear();
-    
-    // Get unique categories from expenses
-    final Set<String> uniqueCategories = allExpenses.map((e) => e.category).toSet();
-    
-    for (final category in uniqueCategories) {
-      final categoryExpenses = expensesByCategory[category] ?? [];
-      final totalAmount = categoryExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
-      final icon = categoryExpenses.isNotEmpty ? categoryExpenses.first.categoryIcon : Icons.category;
+  Future<void> _calculateDailyExpense() async {
+    try {
+      // Get today's regular expenses
+      final todaysExpenses = await ExpenseService.getTodaysExpenses();
+      final regularExpenseTotal = todaysExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
       
-      categories.add({
-        'icon': icon,
-        'label': category,
-        'amount': '-\$${totalAmount.toStringAsFixed(2)}',
-      });
+      // Get today's planned expenses (items that were purchased today)
+      final today = DateTime.now();
+      final startOfDay = DateTime(today.year, today.month, today.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
+      
+      final plannedExpenses = await PlannedExpenseService.getPlannedExpensesByDateRange(
+        startDate: startOfDay,
+        endDate: endOfDay,
+      );
+      
+      // Calculate total from planned expenses that were purchased today
+      double plannedExpenseTotal = 0.0;
+      for (final plannedExpense in plannedExpenses) {
+        for (final item in plannedExpense.items) {
+          if (item.isPurchased && item.purchasedAt != null) {
+            final purchasedDate = item.purchasedAt!;
+            if (purchasedDate.isAfter(startOfDay) && purchasedDate.isBefore(endOfDay)) {
+              plannedExpenseTotal += item.cost;
+            }
+          }
+        }
+      }
+      
+      dailyExpense = regularExpenseTotal + plannedExpenseTotal;
+    } catch (_) {
+      dailyExpense = 0.0;
     }
-    
-    // Sort categories by amount (highest first)
-    categories.sort((a, b) {
-      final amountA = double.parse(a['amount'].toString().replaceAll(RegExp(r'[^0-9.-]'), ''));
-      final amountB = double.parse(b['amount'].toString().replaceAll(RegExp(r'[^0-9.-]'), ''));
-      return amountB.compareTo(amountA);
-    });
+  }
+
+  Future<void> _buildCategoriesList() async {
+    try {
+      // Update category amounts based on current expenses
+      await CategoryService.updateCategoryAmounts();
+      
+      // Get categories from service
+      final serviceCategories = await CategoryService.getAllCategories();
+      
+      categories.clear();
+      
+      for (final category in serviceCategories) {
+        final categoryName = category['label'] as String;
+        final categoryExpenses = expensesByCategory[categoryName] ?? [];
+        final totalAmount = categoryExpenses.fold(0.0, (sum, expense) => sum + expense.amount);
+        final icon = IconData(
+          category['icon'] as int,
+          fontFamily: category['iconFamily'] as String? ?? 'MaterialIcons',
+        );
+        
+        categories.add({
+          'icon': icon,
+          'label': categoryName,
+          'amount': '-₱${totalAmount.toStringAsFixed(2)}',
+        });
+      }
+      
+      // Sort categories by amount (highest first)
+      categories.sort((a, b) {
+        final amountA = double.parse(a['amount'].toString().replaceAll(RegExp(r'[^0-9.-]'), ''));
+        final amountB = double.parse(b['amount'].toString().replaceAll(RegExp(r'[^0-9.-]'), ''));
+        return amountB.compareTo(amountA);
+      });
+    } catch (e) {
+      print('Error building categories list: $e');
+    }
   }
 
   String _getDateRangeText() {
     final now = DateTime.now();
     
-    switch (selectedBalanceOption) {
+    switch (selectedExpenseOption) {
       case 0: // Weekly
         final weekStart = now.subtract(Duration(days: now.weekday - 1));
         final weekEnd = weekStart.add(const Duration(days: 6));
@@ -268,22 +310,46 @@ class _DashboardPageState extends State<DashboardPage> {
             ElevatedButton(
               onPressed: () async {
                 if (newLabel.trim().isNotEmpty && selectedIcon != null) {
-                  // Add the category to the list
-                  setState(() {
-                    categories.add({
-                      'icon': selectedIcon,
-                      'label': newLabel,
-                      'amount': '-\$0.00',
-                    });
-                  });
-                  Navigator.pop(context);
-                  // Show a message that category was added
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Category "$newLabel" added successfully'),
-                      backgroundColor: Colors.green,
-                    ),
+                  // Add the category to the service
+                  final result = await CategoryService.addCategory(
+                    label: newLabel,
+                    icon: selectedIcon!,
                   );
+                  
+                  if (result['success']) {
+                    // Reload categories from service
+                    await _buildCategoriesList();
+                    setState(() {});
+                    Navigator.pop(context);
+                    // Show a message that category was added
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Category "$newLabel" added successfully'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } else {
+                    // Show error message
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(result['message']),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                } else {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Please enter a category name and select an icon'),
+                        backgroundColor: Colors.orange,
+                      ),
+                    );
+                  }
                 }
               },
               child: const Text('Add'),
@@ -347,7 +413,14 @@ class _DashboardPageState extends State<DashboardPage> {
               // Chart button is now handled by floatingActionButton in the center
               IconButton(
                 icon: const Icon(Icons.notifications, color: Colors.black),
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const NotificationsPage(),
+                    ),
+                  );
+                },
               ),
             ],
           ),
@@ -425,7 +498,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Text(
-                        "Total Balance",
+                        "Total Expense",
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
@@ -435,7 +508,7 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                       const SizedBox(width: 10),
                       DropdownButton<String>(
-                        value: balanceOptions[selectedBalanceOption],
+                        value: expenseOptions[selectedExpenseOption],
                         dropdownColor: const Color(0xFF8EA7FF),
                         icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
                         underline: const SizedBox(),
@@ -446,11 +519,11 @@ class _DashboardPageState extends State<DashboardPage> {
                         ),
                         onChanged: (String? newValue) async {
                           setState(() {
-                            selectedBalanceOption = balanceOptions.indexOf(newValue!);
+                            selectedExpenseOption = expenseOptions.indexOf(newValue!);
                           });
-                          await _calculateBalances();
+                          await _calculateExpenses();
                         },
-                        items: balanceOptions.map((String option) {
+                        items: expenseOptions.map((String option) {
                           return DropdownMenuItem<String>(
                             value: option,
                             child: Text(option),
@@ -461,7 +534,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    "\$ ${totalBalance.toStringAsFixed(2)}",
+                    "₱${totalExpense.toStringAsFixed(2)}",
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 36,
@@ -479,7 +552,7 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                   ),
                   Text(
-                    "\$ ${dailyExpense.toStringAsFixed(2)}",
+                    "₱${dailyExpense.toStringAsFixed(2)}",
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,

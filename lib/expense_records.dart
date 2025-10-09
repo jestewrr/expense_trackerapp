@@ -409,7 +409,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '\$${totalAmount.toStringAsFixed(2)}',
+                        '₱${totalAmount.toStringAsFixed(2)}',
                         style: const TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 22,
@@ -660,7 +660,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                 ),
               ),
               Text(
-                '\$${expense.amount.toStringAsFixed(2)}',
+                '₱${expense.amount.toStringAsFixed(2)}',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ],
@@ -702,7 +702,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                 final date = sortedDates[touchedSpot.x.toInt()];
                 final amount = amounts[touchedSpot.x.toInt()];
                 return LineTooltipItem(
-                  '$date\n\$${amount.toStringAsFixed(2)}',
+                  '$date\n₱${amount.toStringAsFixed(2)}',
                   const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
@@ -750,7 +750,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
               showTitles: true,
               getTitlesWidget: (double value, TitleMeta meta) {
                 return Text(
-                  '\$${value.toInt()}',
+                  '₱${value.toInt()}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,

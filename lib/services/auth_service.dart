@@ -133,6 +133,12 @@ class AuthService {
     await prefs.remove(_currentUserKey);
   }
 
+  // Set current user session
+  static Future<void> setCurrentUser(User user) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_currentUserKey, json.encode(user.toJson()));
+  }
+
   // Get current user
   static Future<User?> getCurrentUser() async {
     try {

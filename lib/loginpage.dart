@@ -105,11 +105,10 @@ class _LoginPageState extends State<LoginPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                  // Elephant icon (you can replace with a custom asset elephant.png)
-                  Icon(
-                    Icons.savings, // replace with elephant asset for best look
-                    size: 140,
-                    color: Colors.blue.shade700,
+                  // Piggy bank image (replace icon)
+                  Image.asset(
+                    "lib/images/pig.png",
+                    height: 140,
                   ),
                   const SizedBox(height: 20),
 

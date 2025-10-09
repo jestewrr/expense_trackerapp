@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'loginpage.dart';
 import 'dashboard.dart';
+import 'onboardlogin.dart'; // Import your onboarding page
 import 'services/auth_service.dart';
 
 void main() {
@@ -33,16 +35,26 @@ class AuthWrapper extends StatefulWidget {
 class _AuthWrapperState extends State<AuthWrapper> {
   bool _isLoading = true;
   bool _isLoggedIn = false;
+  bool _isFirstLaunch = true;
 
   @override
   void initState() {
     super.initState();
-    _checkAuthStatus();
+    _checkFirstLaunchAndAuth();
   }
 
-  Future<void> _checkAuthStatus() async {
+  Future<void> _checkFirstLaunchAndAuth() async {
+    final prefs = await SharedPreferences.getInstance();
+    final isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
+
+    if (isFirstLaunch) {
+      await prefs.setBool('isFirstLaunch', false);
+    }
+
     final isLoggedIn = await AuthService.isLoggedIn();
+
     setState(() {
+      _isFirstLaunch = isFirstLaunch;
       _isLoggedIn = isLoggedIn;
       _isLoading = false;
     });
@@ -56,6 +68,10 @@ class _AuthWrapperState extends State<AuthWrapper> {
           child: CircularProgressIndicator(),
         ),
       );
+    }
+
+    if (_isFirstLaunch) {
+      return const OnboardLoginPage();
     }
 
     return _isLoggedIn ? const DashboardPage() : const LoginPage();

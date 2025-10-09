@@ -3,22 +3,34 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/planned_expense.dart';
 import 'expense_service.dart';
+import 'auth_service.dart';
 
 class PlannedExpenseService {
-  static const String _plannedExpensesKey = 'planned_expenses';
+  static const String _plannedExpensesKeyPrefix = 'planned_expenses_';
+
+  // Get user-specific storage key
+  static Future<String> _getUserPlannedExpensesKey() async {
+    final currentUser = await AuthService.getCurrentUser();
+    if (currentUser == null) {
+      throw Exception('No user logged in');
+    }
+    return '$_plannedExpensesKeyPrefix${currentUser.id}';
+  }
 
   // Get all planned expenses
   static Future<List<PlannedExpense>> getAllPlannedExpenses() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final expensesJson = prefs.getString(_plannedExpensesKey);
+      final userPlannedExpensesKey = await _getUserPlannedExpensesKey();
+      final expensesJson = prefs.getString(userPlannedExpensesKey);
       
       if (expensesJson == null) {
         return [];
       }
 
       final List<dynamic> expensesList = json.decode(expensesJson);
-      return expensesList.map((expenseJson) => PlannedExpense.fromJson(expenseJson)).toList();
+      final expenses = expensesList.map((expenseJson) => PlannedExpense.fromJson(expenseJson)).toList();
+      return expenses;
     } catch (e) {
       return [];
     }
@@ -45,6 +57,7 @@ class PlannedExpenseService {
     required DateTime startDate,
     required DateTime endDate,
     required double totalBudget,
+    String? notes,
     List<PlannedExpenseItem> items = const [],
     List<String> categories = const [],
   }) async {
@@ -63,6 +76,7 @@ class PlannedExpenseService {
         updatedAt: DateTime.now(),
         items: items,
         categories: categories.isNotEmpty ? categories : [category],
+        notes: notes,
       );
 
       expenses.add(newExpense);
@@ -90,6 +104,7 @@ class PlannedExpenseService {
     required DateTime startDate,
     required DateTime endDate,
     required double totalBudget,
+    String? notes,
     List<PlannedExpenseItem> items = const [],
     List<String> categories = const [],
   }) async {
@@ -114,6 +129,7 @@ class PlannedExpenseService {
         updatedAt: DateTime.now(),
         items: items,
         categories: categories.isNotEmpty ? categories : expenses[index].categories,
+        notes: notes,
       );
 
       expenses[index] = updatedExpense;
@@ -322,8 +338,9 @@ class PlannedExpenseService {
   // Save planned expenses to storage
   static Future<void> _savePlannedExpenses(List<PlannedExpense> expenses) async {
     final prefs = await SharedPreferences.getInstance();
+    final userPlannedExpensesKey = await _getUserPlannedExpensesKey();
     final expensesJson = json.encode(expenses.map((expense) => expense.toJson()).toList());
-    await prefs.setString(_plannedExpensesKey, expensesJson);
+    await prefs.setString(userPlannedExpensesKey, expensesJson);
   }
 }
 

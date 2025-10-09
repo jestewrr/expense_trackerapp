@@ -129,6 +129,7 @@ class _EditDeleteSetExpensePageState extends State<EditDeleteSetExpensePage> {
     }
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -166,7 +167,7 @@ class _EditDeleteSetExpensePageState extends State<EditDeleteSetExpensePage> {
                       decoration: const InputDecoration(
                         labelText: 'Amount',
                         border: OutlineInputBorder(),
-                        prefixText: '\$',
+                        prefixText: '₱',
                       ),
                       keyboardType: TextInputType.number,
                     ),
@@ -189,7 +190,7 @@ class _EditDeleteSetExpensePageState extends State<EditDeleteSetExpensePage> {
                           context: context,
                           initialDate: selectedDate,
                           firstDate: DateTime(2020),
-                          lastDate: DateTime.now(),
+                          lastDate: DateTime(2100), // Allow future dates for planned expenses
                         );
                         if (date != null) {
                           setState(() {

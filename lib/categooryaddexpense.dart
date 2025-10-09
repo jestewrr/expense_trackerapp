@@ -20,6 +20,7 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
   final TextEditingController _nameController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
+  TimeOfDay? _selectedTime;
   bool _isLoading = false;
 
   @override
@@ -34,11 +35,37 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
       context: context,
       initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
+      lastDate: DateTime.now(), // Only allow current and past dates
     );
+    
     if (picked != null) {
       setState(() {
         _selectedDate = picked;
+      });
+      // Automatically show time picker after date selection
+      await _pickTime();
+    }
+  }
+
+  Future<void> _pickTime() async {
+    TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime ?? TimeOfDay.now(),
+    );
+    
+    if (picked != null) {
+      setState(() {
+        _selectedTime = picked;
+        // Update the selected date with the chosen time
+        if (_selectedDate != null) {
+          _selectedDate = DateTime(
+            _selectedDate!.year,
+            _selectedDate!.month,
+            _selectedDate!.day,
+            picked.hour,
+            picked.minute,
+          );
+        }
       });
     }
   }
@@ -266,8 +293,8 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
                     children: [
                       Text(
                         _selectedDate == null
-                            ? "Date:"
-                            : "Date:  ${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year}",
+                            ? "Date & Time:"
+                            : "Date & Time:  ${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year} ${_selectedTime?.format(context) ?? ''}",
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                       const Icon(Icons.calendar_today, color: Colors.black),
