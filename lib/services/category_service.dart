@@ -183,4 +183,156 @@ class CategoryService {
     }
   }
 
+  // Edit a category
+  static Future<Map<String, dynamic>> editCategory({
+    required String categoryId,
+    required String label,
+    required IconData icon,
+  }) async {
+    try {
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        return {
+          'success': false,
+          'message': 'No user logged in',
+        };
+      }
+
+      // Check if the category exists and belongs to the user
+      final categoryDoc = await FirebaseFirestore.instance
+          .collection('categories')
+          .doc(categoryId)
+          .get();
+
+      if (!categoryDoc.exists) {
+        return {
+          'success': false,
+          'message': 'Category not found',
+        };
+      }
+
+      final categoryData = categoryDoc.data()!;
+      
+      // Check if it's a default category (can't edit)
+      if (categoryData['isDefault'] == true) {
+        return {
+          'success': false,
+          'message': 'Cannot edit default categories',
+        };
+      }
+
+      // Check if category belongs to current user
+      if (categoryData['userId'] != userId) {
+        return {
+          'success': false,
+          'message': 'You can only edit your own categories',
+        };
+      }
+
+      // Check if new label already exists (excluding current category)
+      final existingCategories = await getAllCategories();
+      if (existingCategories.any((cat) => cat['label'] == label && cat['id'] != categoryId)) {
+        return {
+          'success': false,
+          'message': 'Category name already exists',
+        };
+      }
+
+      // Update the category
+      await FirebaseFirestore.instance
+          .collection('categories')
+          .doc(categoryId)
+          .update({
+        'label': label,
+        'icon': icon.codePoint,
+        'iconFamily': icon.fontFamily ?? 'MaterialIcons',
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+
+      return {
+        'success': true,
+        'message': 'Category updated successfully',
+      };
+    } catch (e) {
+      print('Error editing category: $e');
+      return {
+        'success': false,
+        'message': 'Failed to edit category: ${e.toString()}',
+      };
+    }
+  }
+
+  // Delete a category
+  static Future<Map<String, dynamic>> deleteCategory(String categoryId) async {
+    try {
+      final userId = await _getCurrentUserId();
+      if (userId == null) {
+        return {
+          'success': false,
+          'message': 'No user logged in',
+        };
+      }
+
+      // Check if the category exists and belongs to the user
+      final categoryDoc = await FirebaseFirestore.instance
+          .collection('categories')
+          .doc(categoryId)
+          .get();
+
+      if (!categoryDoc.exists) {
+        return {
+          'success': false,
+          'message': 'Category not found',
+        };
+      }
+
+      final categoryData = categoryDoc.data()!;
+      
+      // Check if it's a default category (can't delete)
+      if (categoryData['isDefault'] == true) {
+        return {
+          'success': false,
+          'message': 'Cannot delete default categories',
+        };
+      }
+
+      // Check if category belongs to current user
+      if (categoryData['userId'] != userId) {
+        return {
+          'success': false,
+          'message': 'You can only delete your own categories',
+        };
+      }
+
+      // Check if category has associated expenses
+      final categoryName = categoryData['label'];
+      final expensesByCategory = await ExpenseService.getExpensesGroupedByCategory();
+      final categoryExpenses = expensesByCategory[categoryName] ?? [];
+      
+      if (categoryExpenses.isNotEmpty) {
+        return {
+          'success': false,
+          'message': 'Cannot delete category with existing expenses. Please delete or reassign expenses first.',
+        };
+      }
+
+      // Delete the category
+      await FirebaseFirestore.instance
+          .collection('categories')
+          .doc(categoryId)
+          .delete();
+
+      return {
+        'success': true,
+        'message': 'Category deleted successfully',
+      };
+    } catch (e) {
+      print('Error deleting category: $e');
+      return {
+        'success': false,
+        'message': 'Failed to delete category: ${e.toString()}',
+      };
+    }
+  }
+
 }

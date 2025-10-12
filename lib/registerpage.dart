@@ -13,7 +13,6 @@ class RegisterPage extends StatefulWidget {
 class _RegisterPageState extends State<RegisterPage> {
   bool _obscurePassword = true;
   bool _obscureRePassword = true;
-  bool _isLoading = false;
   
   // Form controllers
   final TextEditingController _usernameController = TextEditingController();
@@ -43,7 +42,6 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     setState(() {
-      _isLoading = true;
     });
 
     try {
@@ -62,7 +60,6 @@ class _RegisterPageState extends State<RegisterPage> {
             SnackBar(
               content: Text('${result['message']}. Please log in with your new account.'),
               backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
             ),
           );
           
@@ -96,7 +93,6 @@ class _RegisterPageState extends State<RegisterPage> {
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
         });
       }
     }
@@ -231,17 +227,8 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                         elevation: 4,
                       ),
-                      onPressed: _isLoading ? null : _register,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : const Text(
+                      onPressed: _register,
+                      child: const Text(
                               'Register',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
