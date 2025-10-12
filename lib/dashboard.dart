@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'loginpage.dart';
 import 'categoryclicked.dart';
-import 'expense_records.dart'; // Add this import
-import 'setexpense.dart'; // Add this import
-import 'notifications.dart'; // Add this import
+import 'expense_records.dart';
+import 'setexpense.dart';
+import 'notifications.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_auth_service.dart';
 import 'services/expense_service.dart';
 import 'services/planned_expense_service.dart';
 import 'services/category_service.dart';
+import 'services/notification_service.dart';
 import 'models/user.dart';
 import 'models/expense.dart';
 
@@ -22,7 +23,6 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   int selectedTab = 3; // 0: Today, 1: Weekly, 2: Monthly, 3: Yearly
   User? currentUser;
-  bool isLoading = true;
 
   // Add this at the top of your _DashboardPageState:
   final List<String> expenseOptions = ['Weekly', 'Monthly', 'Yearly'];
@@ -66,19 +66,16 @@ class _DashboardPageState extends State<DashboardPage> {
   Future<void> _loadData() async {
     try {
       setState(() {
-        isLoading = true;
       });
       
       await _loadCurrentUser();
       await _loadExpenseData();
       
       setState(() {
-        isLoading = false;
       });
     } catch (e) {
       print('Error loading dashboard data: $e');
       setState(() {
-        isLoading = false;
       });
     }
   }
@@ -222,9 +219,11 @@ class _DashboardPageState extends State<DashboardPage> {
         );
         
         categories.add({
+          'id': category['id'],
           'icon': icon,
           'label': categoryName,
           'amount': '₱${totalAmount.toStringAsFixed(2)}',
+          'isDefault': category['isDefault'] ?? false,
         });
       }
       
@@ -265,7 +264,7 @@ class _DashboardPageState extends State<DashboardPage> {
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
-    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+    return '${months[date.month - 1]}. ${date.day}, ${date.year}';
   }
 
   Future<void> _refreshData() async {
@@ -293,37 +292,60 @@ class _DashboardPageState extends State<DashboardPage> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: Colors.purple[50],
+          backgroundColor: Colors.blue[50],
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text('Add Category'),
+          title: const Text(
+            'Add Category',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.black,
+            ),
+          ),
           content: StatefulBuilder(
             builder: (context, setDialogState) {
               return Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   TextField(
-                    decoration: const InputDecoration(labelText: 'Category Name'),
+                    decoration: const InputDecoration(
+                      labelText: 'Category Name',
+                      border: UnderlineInputBorder(),
+                    ),
                     onChanged: (value) {
                       newLabel = value;
                     },
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 20),
                   Wrap(
                     spacing: 8,
+                    runSpacing: 8,
                     children: availableIcons.map((icon) {
+                      final isSelected = selectedIcon == icon;
                       return GestureDetector(
                         onTap: () {
                           setDialogState(() {
                             selectedIcon = icon;
                           });
                         },
-                        child: CircleAvatar(
-                          backgroundColor: selectedIcon == icon
-                              ? Colors.blue[200]
-                              : Colors.grey[200],
-                          child: Icon(icon, color: Colors.black),
+                        child: Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: isSelected ? Colors.blue[200] : Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.blue[200]!,
+                              width: 2,
+                            ),
+                          ),
+                          child: Icon(
+                            icon,
+                            color: Colors.black,
+                            size: 24,
+                          ),
                         ),
                       );
                     }).toList(),
@@ -335,7 +357,10 @@ class _DashboardPageState extends State<DashboardPage> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+              child: Text(
+                'Cancel',
+                style: TextStyle(color: Colors.blue[600]),
+              ),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -382,6 +407,13 @@ class _DashboardPageState extends State<DashboardPage> {
                   }
                 }
               },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
               child: const Text('Add'),
             ),
           ],
@@ -390,18 +422,11 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+
+
+
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF5D5FEF)),
-          ),
-        ),
-      );
-    }
 
     return Scaffold(
       backgroundColor: Colors.blue[50],
@@ -471,8 +496,11 @@ class _DashboardPageState extends State<DashboardPage> {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.savings,
-                          size: 36, color: Colors.black),
+                      Image.asset(
+                        "lib/images/pig.png",
+                        height: 36,
+                        width: 36,
+                      ),
                       const SizedBox(width: 10),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,7 +509,7 @@ class _DashboardPageState extends State<DashboardPage> {
                               style: TextStyle(
                                   fontSize: 14, color: Colors.black54)),
                           Text(
-                            isLoading ? 'Loading...' : (currentUser?.username ?? 'User'),
+                            (currentUser?.username ?? 'User'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 16)),
                         ],
@@ -512,7 +540,11 @@ class _DashboardPageState extends State<DashboardPage> {
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
               decoration: BoxDecoration(
-                color: Colors.blue[100],
+                gradient: LinearGradient(
+                  colors: [Colors.blue[100]!, Colors.blue[300]!],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
@@ -528,38 +560,59 @@ class _DashboardPageState extends State<DashboardPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        "Total Expense",
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1.1,
+                      Flexible(
+                        child: Text(
+                          "Total Expense",
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.1,
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      DropdownButton<String>(
-                        value: expenseOptions[selectedExpenseOption],
-                        dropdownColor: Colors.blue[100],
-                        icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
-                        underline: const SizedBox(),
-                        style: const TextStyle(
-                          color: Colors.black,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.3),
+                              width: 1,
+                            ),
+                          ),
+                          child: DropdownButton<String>(
+                          value: expenseOptions[selectedExpenseOption],
+                          dropdownColor: Colors.blue[100],
+                          icon: const Icon(Icons.arrow_drop_down, color: Colors.black),
+                          underline: const SizedBox(),
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                          onChanged: (String? newValue) async {
+                            setState(() {
+                              selectedExpenseOption = expenseOptions.indexOf(newValue!);
+                            });
+                            await _calculateExpenses();
+                          },
+                          items: expenseOptions.map((String option) {
+                            return DropdownMenuItem<String>(
+                              value: option,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(option),
+                              ),
+                            );
+                          }).toList(),
+                          ),
                         ),
-                        onChanged: (String? newValue) async {
-                          setState(() {
-                            selectedExpenseOption = expenseOptions.indexOf(newValue!);
-                          });
-                          await _calculateExpenses();
-                        },
-                        items: expenseOptions.map((String option) {
-                          return DropdownMenuItem<String>(
-                            value: option,
-                            child: Text(option),
-                          );
-                        }).toList(),
                       ),
                     ],
                   ),
@@ -590,21 +643,50 @@ class _DashboardPageState extends State<DashboardPage> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Container(
-                    padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
                     decoration: BoxDecoration(
-                      color: Colors.blue[200],
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      _getDateRangeText(),
-                      style: const TextStyle(
-                        color: Colors.black,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 1.05,
+                      gradient: LinearGradient(
+                        colors: [Colors.white.withOpacity(0.9), Colors.white.withOpacity(0.7)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
                       ),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.3),
+                        width: 1,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          color: Colors.blue[700],
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            _getDateRangeText(),
+                            style: TextStyle(
+                              color: Colors.blue[800],
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.5,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -623,12 +705,18 @@ class _DashboardPageState extends State<DashboardPage> {
                   const Text("Category",
                       style:
                           TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  TextButton.icon(
+                  ElevatedButton.icon(
                     onPressed: _showAddCategoryDialog,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Category'),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.black,
+                    icon: const Icon(Icons.add, size: 18, color: Colors.white),
+                    label: const Text('Add Category', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue[600],
+                      foregroundColor: Colors.white,
+                      elevation: 2,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                     ),
                   ),
                 ],
@@ -643,31 +731,33 @@ class _DashboardPageState extends State<DashboardPage> {
                 itemCount: categories.length,
                 itemBuilder: (context, index) {
                   final cat = categories[index];
-                  return GestureDetector(
-                    onTap: () {
-                      // ✅ Restored category click functionality
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => CategoryClickedPage(
-                            icon: cat['icon'],
-                            category: cat['label'],
-                          ),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 14),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 24),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[100],
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Row(
+                  final isDefault = cat['isDefault'] == true;
+                  
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 14),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[100],
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        GestureDetector(
+                          onTap: () {
+                            // ✅ Restored category click functionality
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => CategoryClickedPage(
+                                  icon: cat['icon'],
+                                  category: cat['label'],
+                                ),
+                              ),
+                            );
+                          },
+                          child: Row(
                             children: [
                               Icon(cat['icon'] as IconData,
                                   size: 34, color: Colors.black),
@@ -678,11 +768,15 @@ class _DashboardPageState extends State<DashboardPage> {
                                       fontSize: 18)),
                             ],
                           ),
-                          Text(cat['amount'],
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 18)),
-                        ],
-                      ),
+                        ),
+                        Row(
+                          children: [
+                            Text(cat['amount'],
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 18)),
+                          ],
+                        ),
+                      ],
                     ),
                   );
                 },
@@ -696,5 +790,3 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
 }
-
-

@@ -16,7 +16,6 @@ class SetExpensePage extends StatefulWidget {
 class _SetExpensePageState extends State<SetExpensePage> {
   List<PlannedExpense> plannedExpenses = [];
   List<PlannedExpense> filteredExpenses = [];
-  bool _isLoading = true;
   String _searchQuery = '';
   bool _sortAsc = true;
 
@@ -28,7 +27,6 @@ class _SetExpensePageState extends State<SetExpensePage> {
 
   Future<void> _loadPlannedExpenses() async {
     setState(() {
-      _isLoading = true;
     });
 
     try {
@@ -36,11 +34,9 @@ class _SetExpensePageState extends State<SetExpensePage> {
       setState(() {
         plannedExpenses = expenses;
         _applyFilters();
-        _isLoading = false;
       });
     } catch (e) {
       setState(() {
-        _isLoading = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -85,7 +81,7 @@ class _SetExpensePageState extends State<SetExpensePage> {
   }
 
   String _formatDate(DateTime date) {
-    return DateFormat('MMM,d,yyyy').format(date); // Example: Oct,6,2025
+    return DateFormat('MMM. d, yyyy').format(date); // Example: Oct. 11, 2025
   }
 
   String _getTodayLabel(DateTime date) {
@@ -101,24 +97,111 @@ class _SetExpensePageState extends State<SetExpensePage> {
       context: context,
       builder: (context) {
         String tempQuery = _searchQuery;
-        return AlertDialog(
-          title: const Text('Search Planned Expenses'),
-          content: TextField(
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.5,
+              maxWidth: MediaQuery.of(context).size.width * 0.9,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.15),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(16),
+                        topRight: Radius.circular(16),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Icon(
+                            Icons.search,
+                            color: Colors.blue[600],
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Search Planned Expenses',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue[800],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Content
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: TextField(
             autofocus: true,
-            decoration: const InputDecoration(hintText: 'Enter name or category'),
+                      decoration: const InputDecoration(
+                        hintText: 'Enter name or category',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.search),
+                      ),
             onChanged: (value) {
               tempQuery = value;
             },
             controller: TextEditingController(text: _searchQuery),
           ),
-          actions: [
-            TextButton(
+                  ),
+                  // Actions
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Cancel',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
               onPressed: () {
                 setState(() {
                   _searchQuery = tempQuery;
@@ -126,9 +209,30 @@ class _SetExpensePageState extends State<SetExpensePage> {
                 });
                 Navigator.pop(context);
               },
-              child: const Text('Search'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue[600],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Search',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
+          ),
         );
       },
     );
@@ -173,13 +277,54 @@ class _SetExpensePageState extends State<SetExpensePage> {
           ),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : filteredExpenses.isEmpty
-              ? const Center(
-                  child: Text(
-                    "No planned expense yet",
-                    style: TextStyle(fontSize: 16, color: Colors.black),
+      body: filteredExpenses.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Modern empty state icon
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(50),
+                          border: Border.all(
+                            color: Colors.blue[200]!,
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.shopping_cart_outlined,
+                          size: 50,
+                          color: Colors.blue[400],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      // Title
+                      Text(
+                        "No Planned Expenses Yet",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Description
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                          "Start planning your expenses by adding your first planned payment",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black54,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 )
               : ListView.builder(
@@ -313,13 +458,13 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                       );
                                     },
                                     child: const Text(
-                                      "View more",
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.blue,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                    ),
+                                  "View more",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.black,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
                                   ),
                                 ],
                               ),
@@ -374,20 +519,301 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                   onTap: () async {
                                     final confirmed = await showDialog<bool>(
                                       context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text('Mark as Completed'),
-                                        content: Text('Are you sure you want to mark "${exp.name}" as completed? This will add it to your expense records.'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context, false),
-                                            child: const Text('Cancel'),
+                                      builder: (context) => Dialog(
+                                        backgroundColor: Colors.transparent,
+                                        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+                                        child: ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxHeight: MediaQuery.of(context).size.height * 0.6,
+                                            maxWidth: MediaQuery.of(context).size.width * 0.9,
                                           ),
-                                          TextButton(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: Colors.white,
+                                              borderRadius: BorderRadius.circular(16),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: Colors.black.withOpacity(0.15),
+                                                  blurRadius: 20,
+                                                  offset: const Offset(0, 8),
+                                                ),
+                                              ],
+                                            ),
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                // Header
+                                                Container(
+                                                  padding: const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.green[50],
+                                                    borderRadius: const BorderRadius.only(
+                                                      topLeft: Radius.circular(16),
+                                                      topRight: Radius.circular(16),
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Container(
+                                                        padding: const EdgeInsets.all(6),
+                                                        decoration: BoxDecoration(
+                                                          color: Colors.green[100],
+                                                          borderRadius: BorderRadius.circular(6),
+                                                        ),
+                                                        child: Icon(
+                                                          Icons.shopping_cart,
+                                                          color: Colors.green[600],
+                                                          size: 20,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Expanded(
+                                                        child: Text(
+                                                          'Mark as Completed',
+                                                          style: TextStyle(
+                                                            fontSize: 16,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: Colors.green[800],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                // Content
+                                                Flexible(
+                                                  child: SingleChildScrollView(
+                                                    padding: const EdgeInsets.all(12),
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          'Are you sure you want to mark this planned expense as completed?',
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            color: Colors.black87,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 8),
+                                                        
+                                                        // Items section
+                                                        if (exp.items.isNotEmpty) ...[
+                                                          Container(
+                                                            padding: const EdgeInsets.all(8),
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.green[50],
+                                                              borderRadius: BorderRadius.circular(8),
+                                                              border: Border.all(color: Colors.green[200]!),
+                                                            ),
+                                                            child: Column(
+                                                              children: [
+                                                                Row(
+                                                                  children: [
+                                                                    Icon(
+                                                                      Icons.checklist,
+                                                                      color: Colors.green[600],
+                                                                      size: 16,
+                                                                    ),
+                                                                    const SizedBox(width: 6),
+                                                                    Text(
+                                                                      'Items (${exp.items.where((item) => item.isPurchased).length}/${exp.items.length} completed):',
+                                                                      style: TextStyle(
+                                                                        fontWeight: FontWeight.w600,
+                                                                        fontSize: 14,
+                                                                        color: Colors.green[700],
+                                                                      ),
+                                                                    ),
+                                                                  ],
+                                                                ),
+                                                                const SizedBox(height: 6),
+                                                                ...exp.items.take(3).map((item) => Padding(
+                                                                  padding: const EdgeInsets.only(bottom: 4),
+                                                                  child: Row(
+                                                                    children: [
+                                                                      Icon(
+                                                                        item.isPurchased ? Icons.check_circle : Icons.radio_button_unchecked,
+                                                                        color: item.isPurchased ? Colors.green[600] : Colors.grey[400],
+                                                                        size: 14,
+                                                                      ),
+                                                                      const SizedBox(width: 6),
+                                                                      Expanded(
+                                                                        child: Text(
+                                                                          item.name,
+                                                                          style: TextStyle(
+                                                                            fontSize: 12,
+                                                                            color: item.isPurchased ? Colors.green[700] : Colors.black87,
+                                                                            fontWeight: item.isPurchased ? FontWeight.w500 : FontWeight.normal,
+                                                                          ),
+                                                                        ),
+                                                                      ),
+                                                                      Text(
+                                                                        '₱${item.cost.toStringAsFixed(2)}',
+                                                                        style: TextStyle(
+                                                                          fontSize: 12,
+                                                                          color: item.isPurchased ? Colors.green[600] : Colors.grey[600],
+                                                                          fontWeight: FontWeight.w600,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                )),
+                                                                if (exp.items.length > 3) ...[
+                                                                  const SizedBox(height: 4),
+                                                                  Text(
+                                                                    '... and ${exp.items.length - 3} more items',
+                                                                    style: TextStyle(
+                                                                      fontSize: 12,
+                                                                      color: Colors.grey[600],
+                                                                      fontStyle: FontStyle.italic,
+                                                                    ),
+                                                                  ),
+                                                                ],
+                                                                const SizedBox(height: 6),
+                                                                Container(
+                                                                  padding: const EdgeInsets.all(6),
+                                                                  decoration: BoxDecoration(
+                                                                    color: Colors.green[200],
+                                                                    borderRadius: BorderRadius.circular(4),
+                                                                  ),
+                                                                  child: Row(
+                                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                                    children: [
+                                                                      Text(
+                                                                        'Total:',
+                                                                        style: TextStyle(
+                                                                          fontWeight: FontWeight.bold,
+                                                                          fontSize: 14,
+                                                                          color: Colors.green[800],
+                                                                        ),
+                                                                      ),
+                                                                      Text(
+                                                                        '₱${exp.items.fold(0.0, (sum, item) => sum + item.cost).toStringAsFixed(2)}',
+                                                                        style: TextStyle(
+                                                                          fontWeight: FontWeight.bold,
+                                                                          fontSize: 14,
+                                                                          color: Colors.green[800],
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ] else ...[
+                                                          Container(
+                                                            padding: const EdgeInsets.all(8),
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.green[50],
+                                                              borderRadius: BorderRadius.circular(8),
+                                                              border: Border.all(color: Colors.green[200]!),
+                                                            ),
+                                                            child: Row(
+                                                              children: [
+                                                                Icon(
+                                                                  Icons.check,
+                                                                  color: Colors.green[600],
+                                                                  size: 16,
+                                                                ),
+                                                                const SizedBox(width: 8),
+                                                                Expanded(
+                                                                  child: Column(
+                                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                                    children: [
+                                                                      Text(
+                                                                        exp.name,
+                                                                        style: TextStyle(
+                                                                          fontWeight: FontWeight.w600,
+                                                                          fontSize: 14,
+                                                                          color: Colors.black87,
+                                                                        ),
+                                                                      ),
+                                                                      Text(
+                                                                        '₱${exp.cost.toStringAsFixed(2)}',
+                                                                        style: TextStyle(
+                                                                          color: Colors.green[600],
+                                                                          fontSize: 12,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ],
+                                                        
+                                                        const SizedBox(height: 8),
+                                                        Text(
+                                                          'This will add it to your expense records.',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            color: Colors.grey[600],
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                                // Actions
+                                                Container(
+                                                  padding: const EdgeInsets.all(12),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey[50],
+                                                    borderRadius: const BorderRadius.only(
+                                                      bottomLeft: Radius.circular(16),
+                                                      bottomRight: Radius.circular(16),
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    children: [
+                                                      Expanded(
+                                                        child: TextButton(
+                                                          onPressed: () => Navigator.pop(context, false),
+                                                          style: TextButton.styleFrom(
+                                                            padding: const EdgeInsets.symmetric(vertical: 6),
+                                                            shape: RoundedRectangleBorder(
+                                                              borderRadius: BorderRadius.circular(8),
+                                                            ),
+                                                          ),
+                                                          child: Text(
+                                                            'Cancel',
+                                                            style: TextStyle(
+                                                              color: Colors.grey[600],
+                                                              fontWeight: FontWeight.w600,
+                                                              fontSize: 10,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      const SizedBox(width: 12),
+                                                      Expanded(
+                                                        child: ElevatedButton(
                                             onPressed: () => Navigator.pop(context, true),
-                                            style: TextButton.styleFrom(foregroundColor: Colors.green),
-                                            child: const Text('Mark Complete'),
+                                                          style: ElevatedButton.styleFrom(
+                                                            backgroundColor: Colors.green[600],
+                                                            foregroundColor: Colors.white,
+                                                            padding: const EdgeInsets.symmetric(vertical: 6),
+                                                            shape: RoundedRectangleBorder(
+                                                              borderRadius: BorderRadius.circular(8),
+                                                            ),
+                                                          ),
+                                                          child: const Text(
+                                                            'Mark Complete',
+                                                            style: TextStyle(
+                                                              fontWeight: FontWeight.w600,
+                                                              fontSize: 10,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     );
                                     
@@ -447,20 +873,181 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                   onTap: () async {
                                     final confirmed = await showDialog<bool>(
                                       context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text('Delete Planned Expense'),
-                                        content: Text('Are you sure you want to delete "${exp.name}"?\n\nThis action cannot be undone.'),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () => Navigator.pop(context, false),
-                                            child: const Text('Cancel'),
+                                      builder: (context) => Dialog(
+                                        backgroundColor: Colors.transparent,
+                                        child: Container(
+                                          margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 35),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(20),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.15),
+                                                blurRadius: 25,
+                                                offset: const Offset(0, 10),
+                                              ),
+                                            ],
                                           ),
-                                          TextButton(
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              // Modern header with warning icon
+                                              Container(
+                                                padding: const EdgeInsets.all(24),
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    colors: [Colors.red[400]!, Colors.red[500]!],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
+                                                  borderRadius: const BorderRadius.only(
+                                                    topLeft: Radius.circular(20),
+                                                    topRight: Radius.circular(20),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                      padding: const EdgeInsets.all(12),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white.withOpacity(0.25),
+                                                        borderRadius: BorderRadius.circular(15),
+                                                      ),
+                                                      child: const Icon(
+                                                        Icons.delete_forever,
+                                                        color: Colors.white,
+                                                        size: 20,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 16),
+                                                    const Expanded(
+                                                        child: Text(
+                                                          'Delete Planned Expense',
+                                                          style: TextStyle(
+                                                            fontWeight: FontWeight.bold,
+                                                            fontSize: 12,
+                                                            color: Colors.white,
+                                                          ),
+                                                        ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              // Content section
+                                              Padding(
+                                                padding: const EdgeInsets.all(24),
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    // Warning message
+                                                    Container(
+                                                      padding: const EdgeInsets.all(16),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.red[50],
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        border: Border.all(color: Colors.red[200]!),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          Container(
+                                                            padding: const EdgeInsets.all(8),
+                                                            decoration: BoxDecoration(
+                                                              color: Colors.red[100],
+                                                              borderRadius: BorderRadius.circular(8),
+                                                            ),
+                                                            child: Icon(
+                                                              Icons.warning_outlined,
+                                                              color: Colors.red[700],
+                                                              size: 20,
+                                                            ),
+                                                          ),
+                                                          const SizedBox(width: 12),
+                                                          Expanded(
+                                                            child: Text(
+                                                              'This action cannot be undone. All data will be permanently deleted.',
+                                                              style: TextStyle(
+                                                                fontSize: 8,
+                                                                color: Colors.red[700],
+                                                                height: 1.4,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 20),
+                                                    // Main question
+                                                    Text(
+                                                      'Are you sure you want to delete "${exp.name}"?',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors.black87,
+                                                        height: 1.4,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              // Modern action buttons
+                                              Container(
+                                                padding: const EdgeInsets.all(24),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey[50],
+                                                  borderRadius: const BorderRadius.only(
+                                                    bottomLeft: Radius.circular(20),
+                                                    bottomRight: Radius.circular(20),
+                                                  ),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: TextButton(
+                                                        onPressed: () => Navigator.pop(context, false),
+                                                        style: TextButton.styleFrom(
+                                                          padding: const EdgeInsets.symmetric(vertical: 6),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius: BorderRadius.circular(12),
+                                                          ),
+                                                        ),
+                                                        child: Text(
+                                                          'Cancel',
+                                                          style: TextStyle(
+                                                            color: Colors.grey[600],
+                                                            fontWeight: FontWeight.w600,
+                                                            fontSize: 10,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(width: 12),
+                                                    Expanded(
+                                                      child: ElevatedButton(
                                             onPressed: () => Navigator.pop(context, true),
-                                            style: TextButton.styleFrom(foregroundColor: Colors.red),
-                                            child: const Text('Yes, Delete'),
+                                                        style: ElevatedButton.styleFrom(
+                                                          backgroundColor: Colors.red[600],
+                                                          foregroundColor: Colors.white,
+                                                          padding: const EdgeInsets.symmetric(vertical: 6),
+                                                          shape: RoundedRectangleBorder(
+                                                            borderRadius: BorderRadius.circular(8),
+                                                          ),
+                                                          elevation: 2,
+                                                        ),
+                                                        child: const Text(
+                                                          'Delete',
+                                                          style: TextStyle(
+                                                            fontWeight: FontWeight.w600,
+                                                            fontSize: 10,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ],
+                                        ),
                                       ),
                                     );
                                     if (confirmed == true) {
@@ -509,7 +1096,7 @@ class _SetExpensePageState extends State<SetExpensePage> {
                   },
                 ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: Colors.blue[100],
+        backgroundColor: Colors.black,
         shape: const CircleBorder(),
         onPressed: () async {
           final result = await Navigator.push(
@@ -522,7 +1109,7 @@ class _SetExpensePageState extends State<SetExpensePage> {
             await _loadPlannedExpenses();
           }
         },
-        child: const Icon(Icons.add, color: Colors.black, size: 32),
+        child: const Icon(Icons.add, color: Colors.white, size: 32),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );

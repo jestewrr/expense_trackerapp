@@ -3,17 +3,20 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'services/expense_service.dart';
 import 'services/planned_expense_service.dart';
+import 'services/notification_service.dart';
 import 'models/planned_expense.dart';
 
 class NotificationItem {
   final String id;
-  final String type; // 'expense', 'planned_expense', 'completed_expense'
+  final String type; // 'overdue_expense'
   final String title;
   final String description;
   final double amount;
   final String category;
   final DateTime date;
   final IconData icon;
+  final int? daysOverdue; // For overdue notifications
+  final bool? isCompleted; // For planned expense notifications
 
   NotificationItem({
     required this.id,
@@ -24,6 +27,8 @@ class NotificationItem {
     required this.category,
     required this.date,
     required this.icon,
+    this.daysOverdue,
+    this.isCompleted,
   });
 }
 
@@ -36,64 +41,33 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   List<NotificationItem> notifications = [];
-  bool isLoading = true;
-  Timer? _refreshTimer;
-
   @override
   void initState() {
     super.initState();
     _loadNotifications();
-    // Start timer to refresh notifications every minute for real-time updates
-    _refreshTimer = Timer.periodic(const Duration(minutes: 1), (timer) {
-      if (mounted) {
-        setState(() {
-          // This will trigger a rebuild to update relative times
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _refreshTimer?.cancel();
-    super.dispose();
   }
 
   Future<void> _loadNotifications() async {
     setState(() {
-      isLoading = true;
     });
 
     try {
       final List<NotificationItem> allNotifications = [];
 
-      // Load regular expenses
-      final expenses = await ExpenseService.getAllExpenses();
-      for (final expense in expenses) {
+      // Only load overdue planned expenses
+      final overdueExpenses = await NotificationService.checkOverduePlannedExpenses();
+      for (final overdueExpense in overdueExpenses) {
         allNotifications.add(NotificationItem(
-          id: expense.id,
-          type: 'expense',
-          title: 'Expense Added',
-          description: '${expense.name} - ${expense.category}',
-          amount: expense.amount,
-          category: expense.category,
-          date: expense.date,
-          icon: _getCategoryIcon(expense.category),
-        ));
-      }
-
-      // Load planned expenses
-      final plannedExpenses = await PlannedExpenseService.getAllPlannedExpenses();
-      for (final plannedExpense in plannedExpenses) {
-        allNotifications.add(NotificationItem(
-          id: plannedExpense.id,
-          type: 'planned_expense',
-          title: 'Planned Expense Created',
-          description: '${plannedExpense.name} - ${plannedExpense.category}',
-          amount: plannedExpense.cost,
-          category: plannedExpense.category,
-          date: plannedExpense.createdAt,
-          icon: _getCategoryIcon(plannedExpense.category),
+          id: 'overdue_${overdueExpense['id']}',
+          type: 'overdue_expense',
+          title: 'Overdue Planned Expense',
+          description: '${overdueExpense['name']} - ${overdueExpense['category']}',
+          amount: overdueExpense['remainingAmount'] ?? 0.0,
+          category: overdueExpense['category'],
+          date: overdueExpense['endDate'],
+          icon: _getCategoryIcon(overdueExpense['category']),
+          daysOverdue: overdueExpense['daysOverdue'],
+          isCompleted: overdueExpense['isCompleted'],
         ));
       }
 
@@ -102,17 +76,15 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
       setState(() {
         notifications = allNotifications;
-        isLoading = false;
       });
     } catch (e) {
       setState(() {
-        isLoading = false;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading notifications: ${e.toString()}'),
-            backgroundColor: Colors.red,
+            backgroundColor: Colors.black87,
           ),
         );
       }
@@ -154,7 +126,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     } else if (notificationDate == yesterday) {
       return 'Yesterday';
     } else {
-      return DateFormat('MMM d, yyyy').format(date);
+      return DateFormat('MMM. d, yyyy').format(date);
     }
   }
 
@@ -179,14 +151,375 @@ class _NotificationsPageState extends State<NotificationsPage> {
     return DateFormat('h:mm a').format(date);
   }
 
+  void _showNotificationDetails(NotificationItem notification) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.7,
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: _getTypeColor(notification.type).withOpacity(0.1),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: _getTypeColor(notification.type).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          notification.icon,
+                          color: _getTypeColor(notification.type),
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              notification.title,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: _getTypeColor(notification.type),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _getTypeColor(notification.type).withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _getTypeText(notification.type),
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: _getTypeColor(notification.type),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Description
+                        Text(
+                          'Description',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          notification.description,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: Colors.black87,
+                            height: 1.4,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        
+                        // Amount and Category
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Amount',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '₱${notification.amount.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: _getTypeColor(notification.type),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Category',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    notification.category,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        
+                        // Date and Time
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Date',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _formatDate(notification.date),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Time',
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    _formatTime(notification.date),
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        
+                        // Additional info for specific notification types
+                        if (notification.type == 'overdue_expense' && notification.daysOverdue != null) ...[
+                          const SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.red[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.red[200]!),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.warning,
+                                  color: Colors.red[600],
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Overdue Notice',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.red[800],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'This planned expense is overdue by ${notification.daysOverdue} day${notification.daysOverdue == 1 ? '' : 's'}. Please complete it as soon as possible.',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.red[700],
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        
+                        if (notification.isCompleted != null) ...[
+                          const SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: notification.isCompleted! ? Colors.green[50] : Colors.grey[50],
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: notification.isCompleted! ? Colors.green[200]! : Colors.grey[200]!,
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  notification.isCompleted! ? Icons.check_circle : Icons.pending,
+                                  color: notification.isCompleted! ? Colors.green[600] : Colors.grey[600],
+                                  size: 24,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Status',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: notification.isCompleted! ? Colors.green[800] : Colors.grey[800],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        notification.isCompleted! ? 'This planned expense has been completed.' : 'This planned expense is still pending.',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: notification.isCompleted! ? Colors.green[700] : Colors.grey[700],
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+                // Actions
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _getTypeColor(notification.type),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Close',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Color _getTypeColor(String type) {
     switch (type) {
-      case 'expense':
+      case 'overdue_expense':
         return Colors.red;
-      case 'planned_expense':
-        return Colors.blue;
-      case 'completed_expense':
-        return Colors.green;
       default:
         return Colors.grey;
     }
@@ -194,14 +527,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   String _getTypeText(String type) {
     switch (type) {
-      case 'expense':
-        return 'Expense';
-      case 'planned_expense':
-        return 'Planned';
-      case 'completed_expense':
-        return 'Completed';
+      case 'overdue_expense':
+        return 'Overdue';
       default:
-        return 'Activity';
+        return 'Notification';
     }
   }
 
@@ -216,12 +545,13 @@ class _NotificationsPageState extends State<NotificationsPage> {
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Notifications',
           style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+            fontWeight: FontWeight.w700,
             fontSize: 22,
+            letterSpacing: 0.5,
           ),
         ),
         centerTitle: false,
@@ -232,33 +562,51 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : notifications.isEmpty
+      body: notifications.isEmpty
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(
-                        Icons.notifications_none,
-                        size: 64,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No notifications yet',
-                        style: TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey,
-                          fontWeight: FontWeight.w500,
+                      // Modern empty state icon
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(50),
+                          border: Border.all(
+                            color: Colors.blue[200]!,
+                            width: 2,
+                          ),
+                        ),
+                        child: Icon(
+                          Icons.notifications_none,
+                          size: 50,
+                          color: Colors.blue[400],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Your activity history will appear here',
+                      const SizedBox(height: 24),
+                      // Title
+                      Text(
+                        "No Notifications Yet",
                         style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Description
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 40),
+                        child: Text(
+                          "Your activity history and important updates will appear here",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.black54,
+                            height: 1.5,
+                          ),
                         ),
                       ),
                     ],
@@ -271,7 +619,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     itemCount: notifications.length,
                     itemBuilder: (context, index) {
                       final notification = notifications[index];
-                      return Container(
+                      return GestureDetector(
+                        onTap: () => _showNotificationDetails(notification),
+                        child: Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
@@ -348,6 +698,40 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                       color: Colors.black87,
                                     ),
                                   ),
+                                  // Show additional info for overdue and due expenses
+                                  if (notification.type == 'overdue_expense' && notification.daysOverdue != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Overdue by ${notification.daysOverdue} day${notification.daysOverdue == 1 ? '' : 's'}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                  if (notification.type == 'due_expense') ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Due tomorrow',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.orange,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                  if (notification.isCompleted != null) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      notification.isCompleted! ? 'Completed' : 'Incomplete',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: notification.isCompleted! ? Colors.green : Colors.grey,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
                                   const SizedBox(height: 8),
                                   Row(
                                     children: [
@@ -381,6 +765,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                               ),
                             ),
                           ],
+                        ),
                         ),
                       );
                     },
