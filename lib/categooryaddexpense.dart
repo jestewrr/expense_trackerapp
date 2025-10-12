@@ -21,7 +21,6 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -86,7 +85,6 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
     }
 
     setState(() {
-      _isLoading = true;
     });
 
     try {
@@ -135,7 +133,6 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
     } finally {
       if (mounted) {
         setState(() {
-          _isLoading = false;
         });
       }
     }
@@ -146,8 +143,9 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
       margin: const EdgeInsets.symmetric(vertical: 10),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.blue[100],
-        borderRadius: BorderRadius.circular(20),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(30),
+        border: Border.all(color: Colors.blue[200]!),
         boxShadow: [
           BoxShadow(
             color: Colors.blue.withOpacity(0.08),
@@ -189,6 +187,39 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
             padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 8),
             child: Column(
               children: [
+              // Name field
+              _buildInputField(
+                child: Row(
+                  children: [
+                    const Text(
+                      "Name:",
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.black87,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: TextFormField(
+                        controller: _nameController,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter a name';
+                          }
+                          return null;
+                        },
+                        style: const TextStyle(fontSize: 16, color: Colors.black),
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          hintText: "Enter name",
+                          hintStyle: TextStyle(fontSize: 16, color: Colors.black38),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               // Amount field
               _buildInputField(
                 child: Row(
@@ -234,39 +265,6 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
                   ],
                 ),
               ),
-              // Name field
-              _buildInputField(
-                child: Row(
-                  children: [
-                    const Text(
-                      "Name:",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.black87,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _nameController,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Please enter a name';
-                          }
-                          return null;
-                        },
-                        style: const TextStyle(fontSize: 16, color: Colors.black),
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          hintText: "Enter name",
-                          hintStyle: TextStyle(fontSize: 16, color: Colors.black38),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
               // Category field
               _buildInputField(
                 child: Row(
@@ -306,31 +304,22 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _isLoading ? null : _saveExpense,
+                  onPressed: _saveExpense,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
+                    backgroundColor: Colors.blue[600],
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
-                      side: const BorderSide(color: Colors.black12),
                     ),
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     elevation: 2,
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            color: Colors.black,
-                            strokeWidth: 2,
-                          ),
-                        )
-                      : const Text(
+                  child: const Text(
                           "Save",
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 18,
-                            color: Colors.black,
+                            color: Colors.white,
                             letterSpacing: 1.05,
                           ),
                         ),

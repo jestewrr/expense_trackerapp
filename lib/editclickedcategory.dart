@@ -93,9 +93,10 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue.shade600,
+                    backgroundColor: Colors.blue[600],
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   onPressed: () {
@@ -109,9 +110,10 @@ class _EditClickedCategoryPageState extends State<EditClickedCategoryPage> {
                 width: double.infinity,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade600,
+                    backgroundColor: Colors.red[600],
+                    foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                   ),
                   onPressed: () {

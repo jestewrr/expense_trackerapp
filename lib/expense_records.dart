@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'services/expense_service.dart';
 import 'models/expense.dart';
-import 'edit_delete_setexpense.dart';
 import 'categooryaddexpense.dart';
 
 class ExpenseRecordsPage extends StatefulWidget {
@@ -13,8 +12,7 @@ class ExpenseRecordsPage extends StatefulWidget {
 }
 
 class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
-  int selectedTab = 1; // 0: Today, 1: Weekly, 2: Monthly
-  bool isLoading = true;
+  int selectedTab = 1; // 0: Today, 1: Weekly, 2: Monthly, 3: Annual
   bool isSelectionMode = false;
   Set<String> selectedExpenseIds = {};
   String searchQuery = '';
@@ -34,7 +32,6 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
 
   Future<void> _loadExpenseData() async {
     setState(() {
-      isLoading = true;
     });
 
     try {
@@ -46,7 +43,6 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
     }
 
     setState(() {
-      isLoading = false;
     });
   }
 
@@ -72,6 +68,14 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
         expenses = await ExpenseService.getExpensesByDateRange(
           startDate: monthStart,
           endDate: monthEnd,
+        );
+        break;
+      case 3: // Annual
+        final yearStart = DateTime(now.year, 1, 1);
+        final yearEnd = DateTime(now.year, 12, 31);
+        expenses = await ExpenseService.getExpensesByDateRange(
+          startDate: yearStart,
+          endDate: yearEnd,
         );
         break;
     }
@@ -107,11 +111,42 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
       categoryTotals[expense.category] = (categoryTotals[expense.category] ?? 0.0) + expense.amount;
     }
 
-    // Calculate date totals for chart
+    // Calculate date totals for chart based on selected time period
     Map<String, double> dateTotals = {};
     for (final expense in expenses) {
-      final dateKey = _formatDateForChart(expense.date);
+      String dateKey;
+      final expenseDate = expense.date;
+      
+      switch (selectedTab) {
+        case 0: // Today - group by hour
+          dateKey = '${expenseDate.hour}:00';
+          break;
+        case 1: // Weekly - group by day
+          dateKey = '${expenseDate.day} ${_getMonthName(expenseDate.month)}';
+          break;
+        case 2: // Monthly - group by week
+          final weekNumber = ((expenseDate.day - 1) / 7).floor() + 1;
+          dateKey = 'Week $weekNumber';
+          break;
+        case 3: // Annual - group by month
+          dateKey = _getMonthName(expenseDate.month);
+          break;
+        default:
+          dateKey = '${expenseDate.day} ${_getMonthName(expenseDate.month)}';
+      }
+      
       dateTotals[dateKey] = (dateTotals[dateKey] ?? 0.0) + expense.amount;
+    }
+
+    // Debug: Print expenses for today
+    if (selectedTab == 0) {
+      print('=== TODAY EXPENSES DEBUG ===');
+      print('Total expenses found: ${expenses.length}');
+      for (final expense in expenses) {
+        print('Expense: ${expense.name} - ₱${expense.amount} - Date: ${expense.date}');
+      }
+      print('Total amount: ₱${expenses.fold(0.0, (sum, expense) => sum + expense.amount)}');
+      print('========================');
     }
 
     setState(() {
@@ -136,6 +171,10 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
         final monthStart = DateTime(now.year, now.month, 1);
         final monthEnd = DateTime(now.year, now.month + 1, 0);
         return '${_formatDate(monthStart)} - ${_formatDate(monthEnd)}';
+      case 3: // Annual
+        final yearStart = DateTime(now.year, 1, 1);
+        final yearEnd = DateTime(now.year, 12, 31);
+        return '${_formatDate(yearStart)} - ${_formatDate(yearEnd)}';
       default:
         return '';
     }
@@ -147,7 +186,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return '${days[date.weekday - 1]}, ${date.day} ${months[date.month - 1]} ${date.year}';
+    return '${days[date.weekday - 1]}. ${date.day} ${months[date.month - 1]}, ${date.year}';
   }
 
   String _formatDateForChart(DateTime date) {
@@ -155,7 +194,20 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
       'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
       'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
     ];
-    return '${date.day} ${months[date.month - 1]}';
+    
+    switch (selectedTab) {
+      case 0: // Today - show by hour
+        return '${date.hour}:00';
+      case 1: // Weekly - show by day
+        return '${date.day} ${months[date.month - 1]}';
+      case 2: // Monthly - show by week
+        final weekNumber = ((date.day - 1) / 7).floor() + 1;
+        return 'Week $weekNumber';
+      case 3: // Annual - show by month
+        return months[date.month - 1];
+      default:
+        return '${date.day} ${months[date.month - 1]}';
+    }
   }
 
   Future<void> _refreshData() async {
@@ -184,25 +236,136 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Expenses'),
-        content: Text('Are you sure you want to delete ${selectedExpenseIds.length} expense(s)?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.4,
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.red[50],
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.red[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.delete_outline,
+                          color: Colors.red[600],
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Delete Expenses',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.red[800],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    'Are you sure you want to delete ${selectedExpenseIds.length} expense(s)? This action cannot be undone.',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      color: Colors.black87,
+                      height: 1.4,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                // Actions
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Cancel',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context, true),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red[600],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Delete',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
     );
 
     if (confirmed == true) {
       setState(() {
-        isLoading = true;
       });
 
       try {
@@ -241,36 +404,141 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
   void _showSearchDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Search Expenses'),
-        content: TextField(
-          decoration: const InputDecoration(
-            hintText: 'Search by name, category, or description...',
-            border: OutlineInputBorder(),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.5,
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
           ),
-          onChanged: (value) {
-            setState(() {
-              searchQuery = value;
-            });
-            _filterExpenses();
-          },
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.search,
+                          color: Colors.blue[600],
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Search Expenses',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[800],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: TextField(
+                    decoration: const InputDecoration(
+                      hintText: 'Search by name, category, or description...',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        searchQuery = value;
+                      });
+                      _filterExpenses();
+                    },
+                  ),
+                ),
+                // Actions
+                Container(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextButton(
+                          onPressed: () {
+                            setState(() {
+                              searchQuery = '';
+                            });
+                            _filterExpenses();
+                            Navigator.pop(context);
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Clear',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue[600],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'Close',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                searchQuery = '';
-              });
-              _filterExpenses();
-              Navigator.pop(context);
-            },
-            child: const Text('Clear'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
@@ -278,16 +546,84 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
   void _showSortDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Sort by'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildSortOption('date', 'Date (Newest First)'),
-            _buildSortOption('amount', 'Amount (Highest First)'),
-            _buildSortOption('category', 'Category (A-Z)'),
-            _buildSortOption('name', 'Name (A-Z)'),
-          ],
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.6,
+            maxWidth: MediaQuery.of(context).size.width * 0.9,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.sort,
+                          color: Colors.blue[600],
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Sort by',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue[800],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Content
+                Flexible(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildSortOption('date', 'Date (Newest First)'),
+                        _buildSortOption('amount', 'Amount (Highest First)'),
+                        _buildSortOption('category', 'Category (A-Z)'),
+                        _buildSortOption('name', 'Name (A-Z)'),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -313,7 +649,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
+    if (allExpenses.isEmpty) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Expense Records', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -327,9 +663,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
           ),
         ),
         body: const Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF5D5FEF)),
-          ),
+          child: Text('Loading...'),
         ),
       );
     }
@@ -389,15 +723,20 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Tabs
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildTab('Today', 0),
-                    const SizedBox(width: 12),
-                    _buildTab('Weekly', 1),
-                    const SizedBox(width: 12),
-                    _buildTab('Monthly', 2),
-                  ],
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildTab('Today', 0),
+                      const SizedBox(width: 6),
+                      _buildTab('Weekly', 1),
+                      const SizedBox(width: 6),
+                      _buildTab('Monthly', 2),
+                      const SizedBox(width: 6),
+                      _buildTab('Annual', 3),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
                 // Date range and total
@@ -422,8 +761,10 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                 const SizedBox(height: 18),
                 // Real chart showing expenses by category
                 Container(
-                  height: 200,
+                  height: 180,
                   width: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 4.0),
+                  constraints: const BoxConstraints(maxWidth: 400),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [Colors.blue[100]!, Colors.blue[300]!],
@@ -433,7 +774,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
+                    padding: const EdgeInsets.fromLTRB(8.0, 16.0, 8.0, 8.0),
                     child: dateTotals.isEmpty
                         ? const Center(
                             child: Text(
@@ -445,7 +786,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                               ),
                             ),
                           )
-                        : _buildDateChart(),
+                        : Center(child: _buildDateChart()),
                   ),
                 ),
                 const SizedBox(height: 18),
@@ -510,7 +851,8 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                 );
               }
             },
-            backgroundColor: const Color(0xFF5D5FEF),
+            backgroundColor: Colors.black,
+            shape: const CircleBorder(),
             child: const Icon(Icons.add, color: Colors.white),
           ),
     );
@@ -526,18 +868,18 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
         await _filterExpenses();
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
           color: selected ? Colors.lightBlue[200] : Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.lightBlue[200]!),
         ),
         child: Text(
           label,
           style: TextStyle(
             fontWeight: FontWeight.bold,
+            fontSize: 12,
             color: selected ? Colors.white : Colors.black,
-            fontSize: 16,
           ),
         ),
       ),
@@ -566,19 +908,131 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
       confirmDismiss: (direction) async {
         return await showDialog<bool>(
           context: context,
-          builder: (context) => AlertDialog(
-            title: const Text('Delete Expense'),
-            content: const Text('Are you sure you want to delete this expense?'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel'),
+          builder: (context) => Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.4,
+                maxWidth: MediaQuery.of(context).size.width * 0.9,
               ),
-              TextButton(
-                onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete', style: TextStyle(color: Colors.red)),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Header
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(16),
+                          topRight: Radius.circular(16),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.red[100],
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.delete_outline,
+                              color: Colors.red[600],
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Delete Expense',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red[800],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Content
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Text(
+                        'Are you sure you want to delete this expense? This action cannot be undone.',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: Colors.black87,
+                          height: 1.4,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    // Actions
+                    Container(
+                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text(
+                                'Cancel',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red[600],
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
         );
       },
@@ -598,18 +1052,8 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
         onTap: () {
           if (isSelectionMode) {
             _toggleExpenseSelection(expense.id);
-          } else {
-            // Navigate to edit/delete page
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => EditDeleteSetExpensePage(expense: expense),
-              ),
-            ).then((_) {
-              // Refresh data when returning from edit page
-              _refreshData();
-            });
           }
+          // Edit functionality has been removed - no action on tap
         },
         onLongPress: () {
           if (!isSelectionMode) {
@@ -672,7 +1116,26 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
   }
 
   Widget _buildDateChart() {
-    if (dateTotals.isEmpty) return const SizedBox();
+    if (dateTotals.isEmpty) {
+      return Container(
+        height: 180,
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue[200]!),
+        ),
+        child: Center(
+          child: Text(
+            'No data to display',
+            style: TextStyle(
+              color: Colors.blue[600],
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
 
     // Sort dates for proper chronological order
     final sortedDates = dateTotals.keys.toList();
@@ -685,6 +1148,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
 
     final amounts = sortedDates.map((date) => dateTotals[date]!).toList();
     final maxAmount = amounts.isNotEmpty ? amounts.reduce((a, b) => a > b ? a : b) : 0.0;
+    final minAmount = amounts.isNotEmpty ? amounts.reduce((a, b) => a < b ? a : b) : 0.0;
 
     // Create line chart data points
     final List<FlSpot> spots = [];
@@ -692,9 +1156,39 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
       spots.add(FlSpot(i.toDouble(), amounts[i]));
     }
 
-    return LineChart(
-      LineChartData(
-        maxY: maxAmount * 1.2, // Add some padding above the max value
+    // Calculate better Y-axis range
+    final range = maxAmount - minAmount;
+    final yMin = minAmount > 0 ? (minAmount - range * 0.1).clamp(0.0, double.infinity) : 0.0;
+    final yMax = maxAmount + range * 0.2;
+    
+    // Ensure we have valid data
+    if (amounts.isEmpty || maxAmount == 0) {
+      return Container(
+        height: 180,
+        decoration: BoxDecoration(
+          color: Colors.blue[50],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.blue[200]!),
+        ),
+        child: Center(
+          child: Text(
+            'No expense data available',
+            style: TextStyle(
+              color: Colors.blue[600],
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: LineChart(
+        LineChartData(
+        minY: yMin,
+        maxY: yMax,
         lineTouchData: LineTouchData(
           enabled: true,
           touchTooltipData: LineTouchTooltipData(
@@ -702,12 +1196,13 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
               return touchedSpots.map((touchedSpot) {
                 final date = sortedDates[touchedSpot.x.toInt()];
                 final amount = amounts[touchedSpot.x.toInt()];
+                final formattedDate = _formatDateForTooltip(date);
                 return LineTooltipItem(
-                  '$date\n₱${amount.toStringAsFixed(2)}',
+                  '$formattedDate\n₱${amount.toStringAsFixed(2)}',
                   const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                    fontSize: 14,
                   ),
                 );
               }).toList();
@@ -728,86 +1223,145 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
               getTitlesWidget: (double value, TitleMeta meta) {
                 if (value.toInt() >= 0 && value.toInt() < sortedDates.length) {
                   final date = sortedDates[value.toInt()];
-                  // Show day of week for better readability
-                  final dayOfWeek = _getDayOfWeek(date);
+                  
+                  String displayText;
+                  switch (selectedTab) {
+                    case 0: // Today - show hour
+                      displayText = date;
+                      break;
+                    case 1: // Weekly - show day abbreviation
+                      displayText = _getDayOfWeek(date);
+                      break;
+                    case 2: // Monthly - show week number
+                      displayText = date;
+                      break;
+                    case 3: // Annual - show month abbreviation
+                      displayText = date.length > 3 ? date.substring(0, 3) : date;
+                      break;
+                    default:
+                      displayText = _getDayOfWeek(date);
+                  }
+                  
                   return Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
+                    padding: const EdgeInsets.only(top: 4.0),
                     child: Text(
-                      dayOfWeek,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+                      displayText,
+                      style: TextStyle(
+                        color: Colors.blue[800],
+                        fontSize: selectedTab == 3 ? 8 : 10,
+                        fontWeight: FontWeight.w600,
                       ),
+                      overflow: TextOverflow.ellipsis,
+                      maxLines: 1,
                     ),
                   );
                 }
                 return const Text('');
               },
+              interval: sortedDates.length > 7 ? (sortedDates.length / 7).ceil().toDouble() : 1, // Dynamic interval based on data points
             ),
           ),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
               getTitlesWidget: (double value, TitleMeta meta) {
+                // Format amounts better
+                String formattedAmount;
+                if (value >= 1000) {
+                  formattedAmount = '₱${(value / 1000).toStringAsFixed(1)}k';
+                } else {
+                  formattedAmount = '₱${value.toInt()}';
+                }
                 return Text(
-                  '₱${value.toInt()}',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
+                  formattedAmount,
+                  style: TextStyle(
+                    color: Colors.blue[800],
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 );
               },
               reservedSize: 40,
+              interval: (yMax - yMin) / 5 > 0 ? (yMax - yMin) / 5 : 1.0, // Show 5 Y-axis labels, minimum 1.0
             ),
           ),
         ),
-        borderData: FlBorderData(show: false),
+        borderData: FlBorderData(
+          show: true,
+          border: Border.all(
+            color: Colors.blue[200]!,
+            width: 1,
+          ),
+        ),
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: Colors.white,
-            barWidth: 3,
+            color: Colors.blue[600]!,
+            barWidth: 4,
             isStrokeCapRound: true,
             dotData: FlDotData(
               show: true,
               getDotPainter: (spot, percent, barData, index) {
                 return FlDotCirclePainter(
-                  radius: 4,
-                  color: Colors.white,
-                  strokeWidth: 2,
-                  strokeColor: Colors.white.withOpacity(0.8),
+                  radius: 6,
+                  color: Colors.blue[600]!,
+                  strokeWidth: 3,
+                  strokeColor: Colors.white,
                 );
               },
             ),
             belowBarData: BarAreaData(
               show: true,
-              color: Colors.white.withOpacity(0.2),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.blue[600]!.withOpacity(0.3),
+                  Colors.blue[600]!.withOpacity(0.1),
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
             ),
           ),
         ],
         gridData: FlGridData(
           show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxAmount / 5,
+          drawVerticalLine: true,
+          drawHorizontalLine: true,
+          horizontalInterval: (yMax - yMin) / 5 > 0 ? (yMax - yMin) / 5 : 1.0,
+          verticalInterval: 1,
           getDrawingHorizontalLine: (value) {
             return FlLine(
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.blue[100]!,
               strokeWidth: 1,
+              dashArray: [5, 5],
+            );
+          },
+          getDrawingVerticalLine: (value) {
+            return FlLine(
+              color: Colors.blue[100]!,
+              strokeWidth: 1,
+              dashArray: [5, 5],
             );
           },
         ),
+      ),
       ),
     );
   }
 
   String _getDayOfWeek(String dateString) {
-    final date = _parseDateFromString(dateString);
-    // Custom abbreviations: Mon, Tue, Wed, Thu, Fri, Sat, Sun
-    const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-    return days[date.weekday - 1];
+    // Handle different date formats
+    if (dateString.contains(' ')) {
+      // Format like "15 Oct" - parse and get day of week
+      final date = _parseDateFromString(dateString);
+      const days = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+      return days[date.weekday - 1];
+    } else {
+      // For other formats, return as is
+      return dateString;
+    }
   }
 
   DateTime _parseDateFromString(String dateString) {
@@ -827,5 +1381,22 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
     final now = DateTime.now();
     
     return DateTime(now.year, month, day);
+  }
+
+  String _formatDateForTooltip(String dateString) {
+    final date = _parseDateFromString(dateString);
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return '${months[date.month - 1]} ${date.day}';
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
+    return months[month - 1];
   }
 }

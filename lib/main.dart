@@ -48,11 +48,10 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
-  bool _isLoading = true;
   bool _isLoggedIn = false;
   bool _isFirstLaunch = true;
   final FirebaseAuthService _firebaseAuth = FirebaseAuthService();
-
+ 
   @override
   void initState() {
     super.initState();
@@ -64,37 +63,39 @@ class _AuthWrapperState extends State<AuthWrapper> {
       final prefs = await SharedPreferences.getInstance();
       final isFirstLaunch = prefs.getBool('isFirstLaunch') ?? true;
 
-      if (isFirstLaunch) {
-        await prefs.setBool('isFirstLaunch', false);
-      }
+      print('First launch status: $isFirstLaunch');
 
       // Check Firebase authentication status
       final isLoggedIn = _firebaseAuth.isSignedIn;
+      print('Logged in status: $isLoggedIn');
 
       setState(() {
         _isFirstLaunch = isFirstLaunch;
         _isLoggedIn = isLoggedIn;
-        _isLoading = false;
       });
+
+      // Only set isFirstLaunch to false after the onboarding is completed
+      // This will be done in the onboarding page when user proceeds
     } catch (e) {
+      print('Error checking first launch and auth: $e');
       setState(() {
         _isFirstLaunch = true;
         _isLoggedIn = false;
-        _isLoading = false;
       });
     }
   }
 
+  // Method to reset first launch for testing
+  Future<void> _resetFirstLaunch() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isFirstLaunch', true);
+    setState(() {
+      _isFirstLaunch = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
     if (_isFirstLaunch) {
       return const OnboardLoginPage();
     }

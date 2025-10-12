@@ -248,11 +248,34 @@ class ExpenseService {
   }) async {
     try {
       final expenses = await getAllExpenses();
-      return expenses.where((expense) {
-        return expense.date.isAfter(startDate.subtract(const Duration(days: 1))) &&
-               expense.date.isBefore(endDate.add(const Duration(days: 1)));
+      print('=== DATE RANGE FILTER DEBUG ===');
+      print('Start date: $startDate');
+      print('End date: $endDate');
+      print('Total expenses to filter: ${expenses.length}');
+      
+      final filteredExpenses = expenses.where((expense) {
+        // Normalize dates to compare only date parts (ignore time)
+        final expenseDate = DateTime(expense.date.year, expense.date.month, expense.date.day);
+        final normalizedStartDate = DateTime(startDate.year, startDate.month, startDate.day);
+        final normalizedEndDate = DateTime(endDate.year, endDate.month, endDate.day);
+        
+        final isInRange = expenseDate.isAtSameMomentAs(normalizedStartDate) || 
+               expenseDate.isAtSameMomentAs(normalizedEndDate) ||
+               (expenseDate.isAfter(normalizedStartDate) && expenseDate.isBefore(normalizedEndDate));
+        
+        if (isInRange) {
+          print('INCLUDED: ${expense.name} - ₱${expense.amount} - Date: ${expense.date}');
+        }
+        
+        return isInRange;
       }).toList();
+      
+      print('Filtered expenses: ${filteredExpenses.length}');
+      print('==============================');
+      
+      return filteredExpenses;
     } catch (e) {
+      print('Error filtering expenses by date range: $e');
       return [];
     }
   }
@@ -262,13 +285,27 @@ class ExpenseService {
     try {
       final today = DateTime.now();
       final startOfDay = DateTime(today.year, today.month, today.day);
-      final endOfDay = startOfDay.add(const Duration(days: 1));
+      final endOfDay = DateTime(today.year, today.month, today.day, 23, 59, 59);
       
-      return await getExpensesByDateRange(
+      print('=== TODAY EXPENSES SERVICE DEBUG ===');
+      print('Today: $today');
+      print('Start of day: $startOfDay');
+      print('End of day: $endOfDay');
+      
+      final expenses = await getExpensesByDateRange(
         startDate: startOfDay,
         endDate: endOfDay,
       );
+      
+      print('Expenses found for today: ${expenses.length}');
+      for (final expense in expenses) {
+        print('Expense: ${expense.name} - ₱${expense.amount} - Date: ${expense.date}');
+      }
+      print('=====================================');
+      
+      return expenses;
     } catch (e) {
+      print('Error getting today\'s expenses: $e');
       return [];
     }
   }
