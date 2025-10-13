@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'services/expense_service.dart';
-import 'services/planned_expense_service.dart';
 import 'services/notification_service.dart';
-import 'models/planned_expense.dart';
+import 'viewsetexpense.dart';
+import 'utils/category_icons.dart';
 
 class NotificationItem {
   final String id;
@@ -45,34 +44,83 @@ class _NotificationsPageState extends State<NotificationsPage> {
   void initState() {
     super.initState();
     _loadNotifications();
+    // Mark all notifications as read when user opens the page
+    NotificationService.markAllNotificationsAsRead();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Only reload if we're actually returning to this page
+    if (mounted) {
+      _loadNotifications();
+    }
   }
 
   Future<void> _loadNotifications() async {
     setState(() {
+      // Set loading state
+      notifications = []; // Clear existing notifications to avoid duplicates
     });
 
     try {
       final List<NotificationItem> allNotifications = [];
 
-      // Only load overdue planned expenses
+      // Load overdue planned expenses FIRST (highest priority)
       final overdueExpenses = await NotificationService.checkOverduePlannedExpenses();
       for (final overdueExpense in overdueExpenses) {
-        allNotifications.add(NotificationItem(
-          id: 'overdue_${overdueExpense['id']}',
-          type: 'overdue_expense',
-          title: 'Overdue Planned Expense',
-          description: '${overdueExpense['name']} - ${overdueExpense['category']}',
-          amount: overdueExpense['remainingAmount'] ?? 0.0,
-          category: overdueExpense['category'],
-          date: overdueExpense['endDate'],
-          icon: _getCategoryIcon(overdueExpense['category']),
-          daysOverdue: overdueExpense['daysOverdue'],
-          isCompleted: overdueExpense['isCompleted'],
-        ));
+        final notificationId = 'overdue_${overdueExpense['id']}';
+        // Check if this notification was permanently dismissed
+        final isDismissed = await NotificationService.isNotificationDismissed(notificationId);
+        if (!isDismissed) {
+          allNotifications.add(NotificationItem(
+            id: notificationId,
+            type: 'overdue_expense',
+            title: 'Overdue Planned Expense',
+            description: '${overdueExpense['name']} - ${overdueExpense['category']}',
+            amount: overdueExpense['remainingAmount'] ?? 0.0,
+            category: overdueExpense['category'],
+            date: overdueExpense['endDate'],
+            icon: _getCategoryIcon(overdueExpense['category']),
+            daysOverdue: overdueExpense['daysOverdue'],
+            isCompleted: false, // Overdue items are never completed
+          ));
+        }
       }
 
-      // Sort by date (newest first)
-      allNotifications.sort((a, b) => b.date.compareTo(a.date));
+      // Skip new expenses - only show planned expense related notifications
+
+      // Load new planned expenses (last 24 hours)
+      final newPlannedExpenses = await NotificationService.checkNewPlannedExpenses();
+      for (final plannedExpense in newPlannedExpenses) {
+        final notificationId = 'new_planned_${plannedExpense['id']}';
+        // Check if this notification was permanently dismissed
+        final isDismissed = await NotificationService.isNotificationDismissed(notificationId);
+        if (!isDismissed) {
+          allNotifications.add(NotificationItem(
+            id: notificationId,
+            type: 'new_planned_expense',
+            title: 'New Planned Expense',
+            description: plannedExpense['isGrouped'] == true 
+                ? '${plannedExpense['count']} planned expenses - ${plannedExpense['category']}'
+                : '${plannedExpense['name']} - ${plannedExpense['category']}',
+            amount: plannedExpense['cost'],
+            category: plannedExpense['category'],
+            date: plannedExpense['date'],
+            icon: _getCategoryIcon(plannedExpense['category']),
+          ));
+        }
+      }
+
+      // Sort by priority: Overdue first, then by date (newest first)
+      allNotifications.sort((a, b) {
+        // Overdue expenses always come first
+        if (a.type == 'overdue_expense' && b.type != 'overdue_expense') return -1;
+        if (a.type != 'overdue_expense' && b.type == 'overdue_expense') return 1;
+        
+        // Within same type, sort by date (newest first)
+        return b.date.compareTo(a.date);
+      });
 
       setState(() {
         notifications = allNotifications;
@@ -92,27 +140,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   }
 
   IconData _getCategoryIcon(String category) {
-    switch (category.toLowerCase()) {
-      case 'food':
-      case 'food & drinks':
-        return Icons.fastfood;
-      case 'transport':
-        return Icons.directions_car;
-      case 'bills':
-        return Icons.receipt_long;
-      case 'shopping':
-        return Icons.shopping_bag;
-      case 'games':
-        return Icons.games;
-      case 'entertainment':
-        return Icons.movie;
-      case 'health':
-        return Icons.health_and_safety;
-      case 'education':
-        return Icons.school;
-      default:
-        return Icons.category;
-    }
+    return CategoryIcons.getCategoryIcon(category);
   }
 
   String _formatDate(DateTime date) {
@@ -520,6 +548,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
     switch (type) {
       case 'overdue_expense':
         return Colors.red;
+      case 'new_expense':
+        return Colors.green;
+      case 'new_planned_expense':
+        return Colors.orange;
       default:
         return Colors.grey;
     }
@@ -529,6 +561,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
     switch (type) {
       case 'overdue_expense':
         return 'Overdue';
+      case 'new_expense':
+        return 'New Expense';
+      case 'new_planned_expense':
+        return 'New Plan';
       default:
         return 'Notification';
     }
@@ -555,12 +591,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
         ),
         centerTitle: false,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.black),
-            onPressed: _loadNotifications,
-          ),
-        ],
       ),
       body: notifications.isEmpty
               ? Center(
@@ -698,7 +728,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                       color: Colors.black87,
                                     ),
                                   ),
-                                  // Show additional info for overdue and due expenses
+                                  // Show additional info for overdue expenses
                                   if (notification.type == 'overdue_expense' && notification.daysOverdue != null) ...[
                                     const SizedBox(height: 4),
                                     Text(
@@ -706,28 +736,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                       style: const TextStyle(
                                         fontSize: 12,
                                         color: Colors.red,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                  if (notification.type == 'due_expense') ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Due tomorrow',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.orange,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ],
-                                  if (notification.isCompleted != null) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      notification.isCompleted! ? 'Completed' : 'Incomplete',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: notification.isCompleted! ? Colors.green : Colors.grey,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
@@ -760,6 +768,139 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                       fontSize: 12,
                                       color: Colors.grey,
                                     ),
+                                  ),
+                                  // Action buttons
+                                  const SizedBox(height: 12),
+                                  Row(
+                                    children: [
+                                      // Dismiss button for all types
+                                      Expanded(
+                                        child: TextButton(
+                                          onPressed: () async {
+                                        try {
+                                          // Dismiss this notification permanently
+                                          await NotificationService.dismissNotification(notification.id);
+                                          // Remove from current list immediately
+                                          setState(() {
+                                            notifications.removeWhere((item) => item.id == notification.id);
+                                          });
+                                          // Show success message
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(
+                                                content: Text('Notification dismissed permanently'),
+                                                backgroundColor: Colors.green,
+                                                duration: Duration(seconds: 2),
+                                              ),
+                                            );
+                                          }
+                                        } catch (e) {
+                                          // Show error message if dismissal fails
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('Failed to dismiss notification: $e'),
+                                                backgroundColor: Colors.red,
+                                                duration: const Duration(seconds: 2),
+                                              ),
+                                            );
+                                          }
+                                        }
+                                      },
+                                          style: TextButton.styleFrom(
+                                            padding: const EdgeInsets.symmetric(vertical: 8),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: Text(
+                                            'Dismiss',
+                                            style: TextStyle(
+                                              color: Colors.grey[600],
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Details button for overdue expenses
+                                      if (notification.type == 'overdue_expense') ...[
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) => ViewSetExpensePage(
+                                                    plannedExpenseId: notification.id.replaceFirst('overdue_', ''),
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.red[600],
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(vertical: 8),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              elevation: 2,
+                                            ),
+                                            child: const Text(
+                                              'Details',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        // View button for other types
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed: () {
+                                              if (notification.type == 'new_planned_expense') {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) => ViewSetExpensePage(
+                                                      plannedExpenseId: notification.id.replaceFirst('new_planned_', ''),
+                                                    ),
+                                                  ),
+                                                );
+                                              } else {
+                                                // For new expenses, just show a message
+                                                ScaffoldMessenger.of(context).showSnackBar(
+                                                  const SnackBar(
+                                                    content: Text('Viewing expense details'),
+                                                    backgroundColor: Colors.green,
+                                                    duration: Duration(seconds: 2),
+                                                  ),
+                                                );
+                                              }
+                                            },
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: _getTypeColor(notification.type),
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(vertical: 8),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              elevation: 2,
+                                            ),
+                                            child: const Text(
+                                              'View',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ],
                               ),

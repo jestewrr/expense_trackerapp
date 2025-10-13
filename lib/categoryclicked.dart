@@ -1,4 +1,4 @@
-import 'package:expense_tracker_application/categooryaddexpense.dart';
+import 'categooryaddexpense.dart';
 import 'package:flutter/material.dart';
 import 'services/expense_service.dart';
 import 'services/planned_expense_service.dart';
@@ -186,9 +186,17 @@ class _CategoryClickedPageState extends State<CategoryClickedPage> {
 
   Future<void> _deleteExpense(Expense expense) async {
     try {
+      // Optimistically update UI first
+      setState(() {
+        expenses.removeWhere((e) => e.id == expense.id);
+      });
+      
       final result = await ExpenseService.deleteExpense(expense.id);
       if (result['success']) {
-        await _loadExpenses(); // Reload the list
+        // Update calculations without full reload
+        await _calculateCategoryExpenses();
+        await _calculateDailyExpense();
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

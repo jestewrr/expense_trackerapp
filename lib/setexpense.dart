@@ -5,6 +5,7 @@ import 'services/planned_expense_service.dart';
 import 'services/expense_service.dart';
 import 'models/planned_expense.dart';
 import 'package:intl/intl.dart'; // For better date formatting
+import 'utils/category_icons.dart';
 
 class SetExpensePage extends StatefulWidget {
   const SetExpensePage({super.key});
@@ -65,19 +66,7 @@ class _SetExpensePageState extends State<SetExpensePage> {
   }
 
   IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'Food':
-      case 'Food & Drinks':
-        return Icons.fastfood;
-      case 'Transport':
-        return Icons.directions_car;
-      case 'Bills':
-        return Icons.receipt_long;
-      case 'Shopping':
-        return Icons.shopping_bag;
-      default:
-        return Icons.category;
-    }
+    return CategoryIcons.getCategoryIcon(category);
   }
 
   String _formatDate(DateTime date) {

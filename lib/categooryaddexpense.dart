@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'services/expense_service.dart';
+import 'services/notification_service.dart';
 
 class CategoryAddExpensePage extends StatefulWidget {
   final String category;
@@ -101,17 +102,32 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
         date: _selectedDate!,
       );
 
-      if (result['success']) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(result['message']),
-              backgroundColor: Colors.green,
-            ),
-          );
-          Navigator.pop(context, result);
-        }
-      } else {
+          if (result['success']) {
+            if (mounted) {
+              // Update activity time to prevent duplicate notifications
+              await NotificationService.setLastActivityTime('new_expense');
+              
+              // Show immediate notification
+              await NotificationService.showActivityNotification(context, {
+                'id': 'single_expense_${result['expense'].id}',
+                'name': result['expense'].name,
+                'category': result['expense'].category,
+                'amount': result['expense'].amount,
+                'date': result['expense'].date,
+                'type': 'new_expense',
+                'isGrouped': false,
+                'count': 1,
+              });
+              
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(result['message']),
+                  backgroundColor: Colors.green,
+                ),
+              );
+              Navigator.pop(context, result);
+            }
+          } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

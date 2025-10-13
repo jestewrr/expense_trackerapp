@@ -4,7 +4,6 @@ import 'categoryclicked.dart';
 import 'expense_records.dart';
 import 'setexpense.dart';
 import 'notifications.dart';
-import 'services/auth_service.dart';
 import 'services/firebase_auth_service.dart';
 import 'services/expense_service.dart';
 import 'services/planned_expense_service.dart';
@@ -54,6 +53,19 @@ class _DashboardPageState extends State<DashboardPage> {
   void initState() {
     super.initState();
     _loadData();
+    // Initialize real-time notifications
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationService.initializeRealTimeNotifications(context);
+      // Check for notifications on startup - prioritize overdue expenses
+      _checkOverdueExpensesOnStartup();
+    });
+  }
+
+  // Check for overdue expenses immediately on app startup
+  Future<void> _checkOverdueExpensesOnStartup() async {
+    // Small delay to ensure UI is fully loaded
+    await Future.delayed(const Duration(milliseconds: 500));
+    await NotificationService.showOverdueExpensesNotification(context);
   }
 
   @override
@@ -79,6 +91,7 @@ class _DashboardPageState extends State<DashboardPage> {
       });
     }
   }
+  
 
   Future<void> _loadCurrentUser() async {
     try {
@@ -629,7 +642,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 10),
                   const Text(
                     "Daily Expenses",
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.black54,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
@@ -731,7 +744,6 @@ class _DashboardPageState extends State<DashboardPage> {
                 itemCount: categories.length,
                 itemBuilder: (context, index) {
                   final cat = categories[index];
-                  final isDefault = cat['isDefault'] == true;
                   
                   return Container(
                     margin: const EdgeInsets.only(bottom: 14),

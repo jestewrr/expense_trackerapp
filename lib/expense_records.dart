@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'services/expense_service.dart';
+import 'services/category_service.dart';
 import 'models/expense.dart';
 import 'categooryaddexpense.dart';
+import 'utils/category_icons.dart';
 
 class ExpenseRecordsPage extends StatefulWidget {
   const ExpenseRecordsPage({super.key});
@@ -17,6 +19,8 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
   Set<String> selectedExpenseIds = {};
   String searchQuery = '';
   String sortBy = 'date'; // date, amount, category, name
+  String? selectedCategory; // For category-specific sorting
+  List<Map<String, dynamic>> userCategories = []; // User's actual categories
   
   List<Expense> allExpenses = [];
   List<Expense> filteredExpenses = [];
@@ -28,6 +32,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
   void initState() {
     super.initState();
     _loadExpenseData();
+    _loadUserCategories();
   }
 
   Future<void> _loadExpenseData() async {
@@ -35,7 +40,41 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
     });
 
     try {
-      allExpenses = await ExpenseService.getAllExpenses();
+      // Load expenses more efficiently based on selected tab
+      final now = DateTime.now();
+      List<Expense> expenses = [];
+      
+      switch (selectedTab) {
+        case 0: // Today
+          expenses = await ExpenseService.getTodaysExpenses();
+          break;
+        case 1: // Weekly
+          final weekStart = now.subtract(Duration(days: now.weekday - 1));
+          final weekEnd = weekStart.add(const Duration(days: 7));
+          expenses = await ExpenseService.getExpensesByDateRange(
+            startDate: weekStart,
+            endDate: weekEnd,
+          );
+          break;
+        case 2: // Monthly
+          final monthStart = DateTime(now.year, now.month, 1);
+          final monthEnd = DateTime(now.year, now.month + 1, 0);
+          expenses = await ExpenseService.getExpensesByDateRange(
+            startDate: monthStart,
+            endDate: monthEnd,
+          );
+          break;
+        case 3: // Annual
+          final yearStart = DateTime(now.year, 1, 1);
+          final yearEnd = DateTime(now.year, 12, 31);
+          expenses = await ExpenseService.getExpensesByDateRange(
+            startDate: yearStart,
+            endDate: yearEnd,
+          );
+          break;
+      }
+      
+      allExpenses = expenses;
       await _filterExpenses();
     } catch (e) {
       // Log error for debugging purposes
@@ -46,39 +85,25 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
     });
   }
 
-  Future<void> _filterExpenses() async {
-    final now = DateTime.now();
-    List<Expense> expenses = [];
+  Future<void> _refreshData() async {
+    await _loadExpenseData();
+    await _loadUserCategories();
+  }
 
-    switch (selectedTab) {
-      case 0: // Today
-        expenses = await ExpenseService.getTodaysExpenses();
-        break;
-      case 1: // Weekly
-        final weekStart = now.subtract(Duration(days: now.weekday - 1));
-        final weekEnd = weekStart.add(const Duration(days: 7));
-        expenses = await ExpenseService.getExpensesByDateRange(
-          startDate: weekStart,
-          endDate: weekEnd,
-        );
-        break;
-      case 2: // Monthly
-        final monthStart = DateTime(now.year, now.month, 1);
-        final monthEnd = DateTime(now.year, now.month + 1, 0);
-        expenses = await ExpenseService.getExpensesByDateRange(
-          startDate: monthStart,
-          endDate: monthEnd,
-        );
-        break;
-      case 3: // Annual
-        final yearStart = DateTime(now.year, 1, 1);
-        final yearEnd = DateTime(now.year, 12, 31);
-        expenses = await ExpenseService.getExpensesByDateRange(
-          startDate: yearStart,
-          endDate: yearEnd,
-        );
-        break;
+  Future<void> _loadUserCategories() async {
+    try {
+      final categories = await CategoryService.getAllCategories();
+      setState(() {
+        userCategories = categories;
+      });
+    } catch (e) {
+      print('Error loading user categories: $e');
     }
+  }
+
+  Future<void> _filterExpenses() async {
+    // Use already loaded expenses instead of making new database calls
+    List<Expense> expenses = List.from(allExpenses);
 
     // Apply search filter
     if (searchQuery.isNotEmpty) {
@@ -86,6 +111,13 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
         return expense.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
                expense.category.toLowerCase().contains(searchQuery.toLowerCase()) ||
                (expense.description?.toLowerCase().contains(searchQuery.toLowerCase()) ?? false);
+      }).toList();
+    }
+
+    // Apply category filter if specific category is selected
+    if (selectedCategory != null) {
+      expenses = expenses.where((expense) {
+        return expense.category.toLowerCase() == selectedCategory!.toLowerCase();
       }).toList();
     }
 
@@ -187,31 +219,6 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
     ];
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     return '${days[date.weekday - 1]}. ${date.day} ${months[date.month - 1]}, ${date.year}';
-  }
-
-  String _formatDateForChart(DateTime date) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    
-    switch (selectedTab) {
-      case 0: // Today - show by hour
-        return '${date.hour}:00';
-      case 1: // Weekly - show by day
-        return '${date.day} ${months[date.month - 1]}';
-      case 2: // Monthly - show by week
-        final weekNumber = ((date.day - 1) / 7).floor() + 1;
-        return 'Week $weekNumber';
-      case 3: // Annual - show by month
-        return months[date.month - 1];
-      default:
-        return '${date.day} ${months[date.month - 1]}';
-    }
-  }
-
-  Future<void> _refreshData() async {
-    await _loadExpenseData();
   }
 
   void _toggleSelectionMode() {
@@ -617,6 +624,36 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                         _buildSortOption('amount', 'Amount (Highest First)'),
                         _buildSortOption('category', 'Category (A-Z)'),
                         _buildSortOption('name', 'Name (A-Z)'),
+                        const Divider(),
+                        const Text(
+                          'Sort by Category',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        // Add user's actual category options
+                        if (userCategories.isNotEmpty)
+                          ...userCategories.map((category) {
+                            return _buildCategorySortOption(
+                              category['name'] ?? category['label'] ?? 'Unknown',
+                              category['icon'] ?? Icons.category,
+                            );
+                          }).toList()
+                        else
+                          const Padding(
+                            padding: EdgeInsets.all(16.0),
+                            child: Text(
+                              'No categories found. Create some categories first.',
+                              style: TextStyle(
+                                color: Colors.grey,
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -640,6 +677,42 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
       onTap: () {
         setState(() {
           sortBy = value;
+          selectedCategory = null; // Clear category selection
+        });
+        _filterExpenses();
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  Widget _buildCategorySortOption(String categoryName, dynamic icon) {
+    final bool isSelected = selectedCategory == categoryName;
+    IconData iconData;
+    
+    // Handle different icon types
+    if (icon is IconData) {
+      iconData = icon;
+    } else if (icon is int) {
+      iconData = IconData(icon, fontFamily: 'MaterialIcons');
+    } else {
+      iconData = Icons.category;
+    }
+    
+    return ListTile(
+      title: Text(categoryName),
+      leading: Icon(
+        iconData,
+        color: isSelected ? const Color(0xFF5D5FEF) : Colors.grey[600],
+        size: 20,
+      ),
+      trailing: Icon(
+        isSelected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+        color: isSelected ? const Color(0xFF5D5FEF) : Colors.grey,
+      ),
+      onTap: () {
+        setState(() {
+          selectedCategory = categoryName;
+          sortBy = 'category';
         });
         _filterExpenses();
         Navigator.pop(context);
@@ -1078,7 +1151,11 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                 ),
                 const SizedBox(width: 8),
               ],
-              Icon(expense.categoryIcon, size: 32, color: Colors.black),
+              Icon(
+                expense.categoryIcon, 
+                size: 32, 
+                color: Colors.black
+              ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(

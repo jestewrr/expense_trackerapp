@@ -151,17 +151,23 @@ class PlannedExpense {
 
   // Calculate the remaining amount after deducting checked items
   double get remainingAmount {
-    double checkedAmount = items
-        .where((item) => item.isPurchased)
-        .fold(0.0, (sum, item) => sum + item.cost);
-    return cost - checkedAmount;
+    // Calculate the remaining amount (total cost - checked amount)
+    return double.parse((cost - checkedAmount).toStringAsFixed(2));
   }
 
   // Calculate the total amount of checked items
   double get checkedAmount {
-    return items
-        .where((item) => item.isPurchased)
-        .fold(0.0, (sum, item) => sum + item.cost);
+    // Calculate only the sum of purchased items
+    double total = 0.0;
+    for (var item in items) {
+      if (item.isPurchased) {
+        // Add each purchased item's cost
+        total += item.cost;
+      }
+    }
+    
+    // Round to 2 decimal places to avoid floating point errors
+    return double.parse(total.toStringAsFixed(2));
   }
 }
 

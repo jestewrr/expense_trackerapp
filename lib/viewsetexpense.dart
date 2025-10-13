@@ -4,6 +4,7 @@ import 'addsetexpense.dart' as addset;
 import 'services/planned_expense_service.dart';
 import 'services/expense_service.dart';
 import 'models/planned_expense.dart';
+import 'utils/category_icons.dart';
 
 class ViewSetExpensePage extends StatefulWidget {
   final String? plannedExpenseId;
@@ -55,33 +56,9 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
     return '${months[date.month - 1]}. ${date.day}, ${date.year}';
   }
 
-  double _calculateRemainingAmount(PlannedExpense expense) {
-    // Calculate total amount of checked items
-    double checkedAmount = 0.0;
-    for (final item in expense.items) {
-      if (item.isPurchased) {
-        checkedAmount += item.cost;
-      }
-    }
-    
-    // Return remaining amount (original cost - checked items)
-    return expense.cost - checkedAmount;
-  }
 
   IconData _getCategoryIcon(String category) {
-    switch (category) {
-      case 'Food':
-      case 'Food & Drinks':
-        return Icons.fastfood;
-      case 'Transport':
-        return Icons.directions_car;
-      case 'Bills':
-        return Icons.receipt_long;
-      case 'Shopping':
-        return Icons.shopping_bag;
-      default:
-        return Icons.category;
-    }
+    return CategoryIcons.getCategoryIcon(category);
   }
 
   @override
@@ -257,14 +234,14 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              "₱${exp.remainingAmount.toStringAsFixed(2)}",
+                              "₱${exp.checkedAmount.toStringAsFixed(2)}",
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
                                 color: Colors.black,
                               ),
                             ),
-                            if (exp.items.isNotEmpty && exp.remainingAmount != exp.cost) ...[
+                            if (exp.items.isNotEmpty) ...[
                               const SizedBox(height: 2),
                               Text(
                                 "of ₱${exp.cost.toStringAsFixed(2)}",
@@ -591,7 +568,20 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                                   if (confirmed != true) return;
                                 }
                                 
-                                // Toggle the item's purchased state
+                                // Optimistically update UI first
+                                setState(() {
+                                  for (var i = 0; i < plannedExpense!.items.length; i++) {
+                                    if (plannedExpense!.items[i].id == item.id) {
+                                      plannedExpense!.items[i] = plannedExpense!.items[i].copyWith(
+                                        isPurchased: !item.isPurchased,
+                                        purchasedAt: !item.isPurchased ? DateTime.now() : null,
+                                      );
+                                      break;
+                                    }
+                                  }
+                                });
+                                
+                                // Then update in database
                                 final result = await PlannedExpenseService.toggleItemPurchased(
                                   plannedExpenseId: exp.id,
                                   itemId: item.id,
@@ -856,7 +846,7 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                                                           ),
                                                           const SizedBox(width: 6),
                                               Text(
-                                                            'Items (${purchasedItemsCount}/${totalItemsCount} completed):',
+                                                            'Items ($purchasedItemsCount/$totalItemsCount completed):',
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.w600,
                                                   fontSize: 14,
@@ -1109,15 +1099,23 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                             );
                             
                             try {
-                              // Add to expense records
-                              await ExpenseService.createExpense(
-                                name: exp.name,
-                                amount: exp.cost,
-                                category: exp.category,
-                                categoryIcon: _getCategoryIcon(exp.category),
-                                date: DateTime.now(),
-                                description: exp.notes ?? 'Completed planned expense',
-                              );
+                              // Only record remaining unchecked items, not the entire planned expense
+                              // Individual checked items are already recorded when they were checked
+                              final uncheckedItems = exp.items.where((item) => !item.isPurchased).toList();
+                              
+                              if (uncheckedItems.isNotEmpty) {
+                                // Record each unchecked item as a separate expense
+                                for (final item in uncheckedItems) {
+                                  await ExpenseService.createExpense(
+                                    name: item.name,
+                                    amount: item.cost,
+                                    category: item.category.isNotEmpty ? item.category : exp.category,
+                                    categoryIcon: Icons.checklist,
+                                    date: DateTime.now(),
+                                    description: 'Completed from plan: ${exp.name}',
+                                  );
+                                }
+                              }
                               
                               // Remove from planned expenses
                               await PlannedExpenseService.deletePlannedExpense(exp.id);
@@ -1133,8 +1131,8 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                                         const SizedBox(width: 8),
                                         Text(
                                           allItemsPurchased 
-                                              ? 'Purchase completed! Added to expense records'
-                                              : 'Planned expense completed and added to records',
+                                              ? 'All items already recorded! Planned expense completed'
+                                              : 'Remaining items recorded! Planned expense completed',
                                           style: const TextStyle(fontWeight: FontWeight.w500),
                                         ),
                                       ],

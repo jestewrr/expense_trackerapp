@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'services/planned_expense_service.dart';
 import 'services/category_service.dart';
+import 'services/notification_service.dart';
 import 'models/planned_expense.dart';
 
 class AddSetExpensePage extends StatefulWidget {
@@ -84,9 +85,7 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
         if (_categories.isEmpty) {
           _categories = ['General'];
         }
-        if (_selectedCategory == null) {
-          _selectedCategory = _categories.first;
-        }
+        _selectedCategory ??= _categories.first;
       });
     } catch (e) {
       setState(() {
@@ -234,6 +233,23 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
       }
 
       if (result['success']) {
+        // Show immediate notification for new planned expenses
+        if (!_isEditing) {
+          // Update activity time to prevent duplicate notifications
+          await NotificationService.setLastActivityTime('new_planned_expense');
+          
+          await NotificationService.showActivityNotification(context, {
+            'id': 'single_planned_${result['expense'].id}',
+            'name': result['expense'].name,
+            'category': result['expense'].category,
+            'cost': result['expense'].cost,
+            'date': result['expense'].createdAt,
+            'type': 'new_planned_expense',
+            'isGrouped': false,
+            'count': 1,
+          });
+        }
+        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_isEditing ? 'Planned expense updated successfully' : 'Planned expense created successfully'),
@@ -582,7 +598,32 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
               if (_checklistNameController.text.trim().isNotEmpty &&
                   _checklistAmountController.text.trim().isNotEmpty) {
                 final amount = double.tryParse(_checklistAmountController.text);
+                final totalExpenseAmount = double.tryParse(_amountController.text) ?? 0.0;
+                
                 if (amount != null && amount > 0) {
+                  // Check if the item amount exceeds the total expense amount
+                  if (amount > totalExpenseAmount) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Item amount (₱$amount) cannot exceed total expense amount (₱$totalExpenseAmount)'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                  
+                  // Calculate total of existing checklist items plus new item
+                  final existingTotal = _checklist.fold(0.0, (sum, item) => sum + item.cost);
+                  if (existingTotal + amount > totalExpenseAmount) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Total checklist amount (₱${existingTotal + amount}) cannot exceed expense amount (₱$totalExpenseAmount)'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                  
                   setState(() {
                     _checklist.add(PlannedExpenseItem(
                       id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -738,7 +779,7 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
               ],
             ),
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -1007,7 +1048,7 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
                   ),
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
-                    value: _selectedCategory,
+                    initialValue: _selectedCategory,
                     dropdownColor: Colors.blue[50],
                     style: TextStyle(fontSize: 16, color: Colors.black87),
                   decoration: InputDecoration(
@@ -1342,7 +1383,7 @@ class _AddSetExpensePageState extends State<AddSetExpensePage> {
 
             // Save button
             const SizedBox(height: 32),
-            Container(
+            SizedBox(
               width: double.infinity,
               height: 60,
               child: ElevatedButton(
