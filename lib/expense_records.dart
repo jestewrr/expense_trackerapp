@@ -3,8 +3,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'services/expense_service.dart';
 import 'services/category_service.dart';
 import 'models/expense.dart';
+import 'utils/responsive_dialog.dart';
 import 'categooryaddexpense.dart';
-import 'utils/category_icons.dart';
 
 class ExpenseRecordsPage extends StatefulWidget {
   const ExpenseRecordsPage({super.key});
@@ -243,131 +243,17 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
 
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.4,
-            maxWidth: MediaQuery.of(context).size.width * 0.9,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.15),
-                  blurRadius: 20,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.red[50],
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      topRight: Radius.circular(16),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.red[100],
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.delete_outline,
-                          color: Colors.red[600],
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Delete Expenses',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red[800],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Content
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    'Are you sure you want to delete ${selectedExpenseIds.length} expense(s)? This action cannot be undone.',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      color: Colors.black87,
-                      height: 1.4,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                // Actions
-                Container(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextButton(
-                          onPressed: () => Navigator.pop(context, false),
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Cancel',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: () => Navigator.pop(context, true),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red[600],
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                          ),
-                          child: const Text(
-                            'Delete',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+      builder: (context) => ResponsiveDialog.createConfirmationDialog(
+        context: context,
+        title: 'Delete Expenses',
+        message: 'Are you sure you want to delete ${selectedExpenseIds.length} expense(s)? This action cannot be undone.',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        icon: Icons.delete_outline,
+        iconColor: Colors.red[600],
+        confirmColor: Colors.red[600],
+        onConfirm: () => Navigator.pop(context, true),
+        onCancel: () => Navigator.pop(context, false),
       ),
     );
 
@@ -641,7 +527,7 @@ class _ExpenseRecordsPageState extends State<ExpenseRecordsPage> {
                               category['name'] ?? category['label'] ?? 'Unknown',
                               category['icon'] ?? Icons.category,
                             );
-                          }).toList()
+                          })
                         else
                           const Padding(
                             padding: EdgeInsets.all(16.0),

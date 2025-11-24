@@ -305,11 +305,14 @@ class _CategoryAddExpensePageState extends State<CategoryAddExpensePage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        _selectedDate == null
-                            ? "Date & Time:"
-                            : "Date & Time:  ${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year} ${_selectedTime?.format(context) ?? ''}",
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      Expanded(
+                        child: Text(
+                          _selectedDate == null
+                              ? "Date & Time:"
+                              : "Date & Time:  ${_selectedDate!.month}/${_selectedDate!.day}/${_selectedDate!.year} ${_selectedTime?.format(context) ?? ''}",
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                       const Icon(Icons.calendar_today, color: Colors.black),
                     ],

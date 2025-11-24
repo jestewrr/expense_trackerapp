@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'addsetexpense.dart' as addset;
 import 'services/planned_expense_service.dart';
-import 'services/expense_service.dart';
 import 'models/planned_expense.dart';
 import 'utils/category_icons.dart';
+import 'utils/responsive_dialog.dart';
 
 class ViewSetExpensePage extends StatefulWidget {
   final String? plannedExpenseId;
@@ -234,7 +234,10 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Text(
-                              "₱${exp.checkedAmount.toStringAsFixed(2)}",
+                              // Show different amounts based on whether it's a checklist or simple planned expense
+                              exp.items.isNotEmpty 
+                                ? "₱${exp.checkedAmount.toStringAsFixed(2)}"  // Checklist: show purchased amount
+                                : "₱${exp.cost.toStringAsFixed(2)}",         // Simple: show total cost
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 18,
@@ -245,6 +248,16 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                               const SizedBox(height: 2),
                               Text(
                                 "of ₱${exp.cost.toStringAsFixed(2)}",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ] else ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                "Total Planned",
                                 style: TextStyle(
                                   fontWeight: FontWeight.w500,
                                   fontSize: 12,
@@ -381,187 +394,17 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                                   // Show confirmation dialog when checking an item
                                   final confirmed = await showDialog<bool>(
                                     context: context,
-                                    builder: (context) => Dialog(
-                                      backgroundColor: Colors.transparent,
-                                      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-                                      child: ConstrainedBox(
-                                        constraints: BoxConstraints(
-                                          maxHeight: MediaQuery.of(context).size.height * 0.4,
-                                          maxWidth: MediaQuery.of(context).size.width * 0.9,
-                                        ),
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                        borderRadius: BorderRadius.circular(16),
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.15),
-                                                blurRadius: 20,
-                                                offset: const Offset(0, 8),
-                                      ),
-                                            ],
-                                          ),
-                                          child: Column(
-                                            mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                              // Header
-                                              Container(
-                                                padding: const EdgeInsets.all(12),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.green[50],
-                                                  borderRadius: const BorderRadius.only(
-                                                    topLeft: Radius.circular(16),
-                                                    topRight: Radius.circular(16),
-                                                  ),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Container(
-                                                      padding: const EdgeInsets.all(6),
-                                                      decoration: BoxDecoration(
-                                                        color: Colors.green[100],
-                                                        borderRadius: BorderRadius.circular(6),
-                                                      ),
-                                                      child: Icon(
-                                            Icons.shopping_cart_checkout,
-                                                        color: Colors.green[600],
-                                                        size: 20,
-                                                      ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: Text(
-                                            'Confirm Purchase',
-                                            style: TextStyle(
-                                                          fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                                          color: Colors.green[800],
-                                                        ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                              ),
-                                              // Content
-                                              Padding(
-                                                padding: const EdgeInsets.all(8),
-                                                child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                            'Have you purchased this item?',
-                                            style: TextStyle(
-                                                        fontSize: 14,
-                                              color: Colors.black87,
-                                            ),
-                                          ),
-                                                    const SizedBox(height: 8),
-                                          Container(
-                                                      padding: const EdgeInsets.all(8),
-                                            decoration: BoxDecoration(
-                                                        color: Colors.green[50],
-                                              borderRadius: BorderRadius.circular(8),
-                                                        border: Border.all(color: Colors.green[200]!),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  Icons.check_circle_outline,
-                                                            color: Colors.green[600],
-                                                            size: 16,
-                                                ),
-                                                          const SizedBox(width: 6),
-                                                Expanded(
-                                                  child: Text(
-                                                    item.name,
-                                                    style: TextStyle(
-                                                      fontWeight: FontWeight.w600,
-                                                                fontSize: 14,
-                                                      color: Colors.black87,
-                                                    ),
-                                                  ),
-                                                ),
-                                                Text(
-                                                  '₱${item.cost.toStringAsFixed(2)}',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                              fontSize: 14,
-                                                              color: Colors.green[700],
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                                    const SizedBox(height: 8),
-                                          Text(
-                                            'This will mark the item as purchased and update your remaining budget.',
-                                            style: TextStyle(
-                                                        fontSize: 12,
-                                              color: Colors.grey[600],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                              ),
-                                              // Actions
-                                              Container(
-                                                padding: const EdgeInsets.all(8),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey[50],
-                                                  borderRadius: const BorderRadius.only(
-                                                    bottomLeft: Radius.circular(16),
-                                                    bottomRight: Radius.circular(16),
-                                                  ),
-                                                ),
-                                                child: Row(
-                                                  children: [
-                                                    Expanded(
-                                                      child: TextButton(
-                                          onPressed: () => Navigator.pop(context, false),
-                                                        style: TextButton.styleFrom(
-                                                          padding: const EdgeInsets.symmetric(vertical: 4),
-                                                          shape: RoundedRectangleBorder(
-                                                            borderRadius: BorderRadius.circular(6),
-                                                          ),
-                                                        ),
-                                          child: Text(
-                                            'Cancel',
-                                            style: TextStyle(
-                                              color: Colors.grey[600],
-                                                            fontWeight: FontWeight.w600,
-                                                            fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
-                                                    ),
-                                                    const SizedBox(width: 8),
-                                                    Expanded(
-                                                      child: ElevatedButton(
-                                          onPressed: () => Navigator.pop(context, true),
-                                          style: ElevatedButton.styleFrom(
-                                                          backgroundColor: Colors.green[400],
-                                            foregroundColor: Colors.white,
-                                                          padding: const EdgeInsets.symmetric(vertical: 4),
-                                            shape: RoundedRectangleBorder(
-                                                            borderRadius: BorderRadius.circular(6),
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'Confirm Purchase',
-                                                          style: TextStyle(
-                                                            fontWeight: FontWeight.w600,
-                                                            fontSize: 12,
-                                                          ),
-                                                        ),
-                                          ),
-                                        ),
-                                      ],
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+                                    builder: (context) => ResponsiveDialog.createConfirmationDialog(
+                                      context: context,
+                                      title: 'Confirm Purchase',
+                                      message: 'Have you purchased "${item.name}" for ₱${item.cost.toStringAsFixed(2)}?\n\nThis will mark the item as purchased and update your remaining budget.',
+                                      confirmText: 'Confirm Purchase',
+                                      cancelText: 'Cancel',
+                                      icon: Icons.shopping_cart_checkout,
+                                      iconColor: Colors.green[600],
+                                      confirmColor: Colors.green[600],
+                                      onConfirm: () => Navigator.pop(context, true),
+                                      onCancel: () => Navigator.pop(context, false),
                                     ),
                                   );
                                   
@@ -600,11 +443,15 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                                             size: 20,
                                           ),
                                           const SizedBox(width: 8),
-                                          Text(
-                                            item.isPurchased 
-                                                ? 'Item unchecked - removed from purchases'
-                                                : 'Item marked as purchased!',
-                                            style: const TextStyle(fontWeight: FontWeight.w500),
+                                          Expanded(
+                                            child: Text(
+                                              item.isPurchased 
+                                                  ? 'Item unchecked - removed from purchases'
+                                                  : 'Item marked as purchased!',
+                                              style: const TextStyle(fontWeight: FontWeight.w500),
+                                              overflow: TextOverflow.visible,
+                                              softWrap: true,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -626,7 +473,13 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                                         children: [
                                           const Icon(Icons.error, color: Colors.white, size: 20),
                                           const SizedBox(width: 8),
-                                          Text(result['message']),
+                                          Expanded(
+                                            child: Text(
+                                              result['message'],
+                                              overflow: TextOverflow.visible,
+                                              softWrap: true,
+                                            ),
+                                          ),
                                         ],
                                       ),
                                       backgroundColor: Colors.red[600],
@@ -696,6 +549,7 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                   ],
                   const SizedBox(height: 20),
                   // Action buttons row
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
@@ -749,300 +603,282 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                           
                           final confirmed = await showDialog<bool>(
                             context: context,
-                            builder: (context) => Dialog(
-                              backgroundColor: Colors.transparent,
-                              insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  maxHeight: MediaQuery.of(context).size.height * 0.6,
-                                  maxWidth: MediaQuery.of(context).size.width * 0.9,
-                                ),
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.15),
-                                        blurRadius: 20,
-                                        offset: const Offset(0, 8),
-                              ),
-                                    ],
-                                  ),
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
+                            builder: (context) => ResponsiveDialog.createScrollableDialog(
+                              context: context,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
-                                      // Header
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green[50],
-                                          borderRadius: const BorderRadius.only(
-                                            topLeft: Radius.circular(16),
-                                            topRight: Radius.circular(16),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.all(6),
-                                              decoration: BoxDecoration(
-                                                color: Colors.green[100],
-                                                borderRadius: BorderRadius.circular(6),
-                                              ),
-                                              child: Icon(
-                                                Icons.shopping_cart,
-                                                color: Colors.green[600],
-                                                size: 20,
-                                              ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                            Expanded(
-                                              child: Text(
-                                                'Mark as Completed',
-                                                style: TextStyle(
-                                                  fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                                  color: Colors.green[800],
-                                                ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                                      ),
-                                      // Content
-                                      Flexible(
-                                        child: SingleChildScrollView(
-                                          padding: const EdgeInsets.all(12),
-                                          child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                                'Are you sure you want to mark this planned expense as completed?',
-                                    style: TextStyle(
-                                                  fontSize: 14,
-                                      color: Colors.black87,
-                                    ),
-                                  ),
-                                              const SizedBox(height: 8),
-                                  
-                                              // Items summary
-                                  if (exp.items.isNotEmpty) ...[
-                                    Container(
-                                                  padding: const EdgeInsets.all(8),
-                                      decoration: BoxDecoration(
-                                                    color: Colors.green[50],
-                                        borderRadius: BorderRadius.circular(8),
-                                                    border: Border.all(color: Colors.green[200]!),
-                                      ),
-                                      child: Column(
-                                        children: [
-                                          Row(
-                                            children: [
-                                                          Icon(
-                                                            Icons.checklist,
-                                                            color: Colors.green[600],
-                                                            size: 16,
-                                                          ),
-                                                          const SizedBox(width: 6),
-                                              Text(
-                                                            'Items ($purchasedItemsCount/$totalItemsCount completed):',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 14,
-                                                              color: Colors.green[700],
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                      const SizedBox(height: 6),
-                                                      ...exp.items.take(3).map((item) => Padding(
-                                                        padding: const EdgeInsets.only(bottom: 4),
-                                                        child: Row(
-                                                          children: [
-                                                            Icon(
-                                                              item.isPurchased ? Icons.check_circle : Icons.radio_button_unchecked,
-                                                              color: item.isPurchased ? Colors.green[600] : Colors.grey[400],
-                                                              size: 14,
-                                                            ),
-                                                            const SizedBox(width: 6),
-                                                            Expanded(
-                                                              child: Text(
-                                                                item.name,
-                                                                style: TextStyle(
-                                                                  fontSize: 12,
-                                                                  color: item.isPurchased ? Colors.green[700] : Colors.black87,
-                                                                  fontWeight: item.isPurchased ? FontWeight.w500 : FontWeight.normal,
-                                                                ),
-                                                ),
-                                              ),
-                                              Text(
-                                                              '₱${item.cost.toStringAsFixed(2)}',
-                                                style: TextStyle(
-                                                                fontSize: 12,
-                                                                color: item.isPurchased ? Colors.green[600] : Colors.grey[600],
-                                                                fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                                      )),
-                                                      if (exp.items.length > 3) ...[
-                                                        const SizedBox(height: 4),
-                                                        Text(
-                                                          '... and ${exp.items.length - 3} more items',
-                                                          style: TextStyle(
-                                                            fontSize: 12,
-                                                            color: Colors.grey[600],
-                                                            fontStyle: FontStyle.italic,
-                                            ),
-                                          ),
-                                        ],
-                                                      const SizedBox(height: 6),
-                                                      Container(
-                                                        padding: const EdgeInsets.all(6),
-                                                        decoration: BoxDecoration(
-                                                          color: Colors.green[200],
-                                                          borderRadius: BorderRadius.circular(4),
-                                                        ),
-                                                        child: Row(
-                                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                          children: [
-                                                            Text(
-                                                              'Total:',
-                                                              style: TextStyle(
-                                                                fontWeight: FontWeight.bold,
-                                                                fontSize: 14,
-                                                                color: Colors.green[800],
-                                                              ),
-                                                            ),
-                                                            Text(
-                                                              '₱${exp.items.fold(0.0, (sum, item) => sum + item.cost).toStringAsFixed(2)}',
-                                                              style: TextStyle(
-                                                                fontWeight: FontWeight.bold,
-                                                                fontSize: 14,
-                                                                color: Colors.green[800],
-                                                              ),
-                                                            ),
-                                                          ],
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ] else ...[
+                                  // Header
                                   Container(
-                                                  padding: const EdgeInsets.all(8),
+                                    padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                                    color: Colors.green[50],
-                                      borderRadius: BorderRadius.circular(8),
-                                                    border: Border.all(color: Colors.green[200]!),
+                                      color: Colors.green[50],
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(16),
+                                        topRight: Radius.circular(16),
+                                      ),
                                     ),
                                     child: Row(
-                                                    children: [
-                                                      Icon(
-                                                        Icons.check,
-                                                        color: Colors.green[600],
-                                                        size: 16,
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      Expanded(
-                                                        child: Column(
-                                                          crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                                              exp.name,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w600,
-                                            fontSize: 14,
-                                            color: Colors.black87,
+                                        Container(
+                                          padding: const EdgeInsets.all(8),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green[100],
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: Icon(
+                                            Icons.shopping_cart,
+                                            color: Colors.green[600],
+                                            size: 20,
                                           ),
                                         ),
-                                        Text(
-                                          '₱${exp.cost.toStringAsFixed(2)}',
-                                          style: TextStyle(
-                                                                color: Colors.green[600],
-                                                                fontSize: 12,
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'Mark as Completed',
+                                            style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.green[800],
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
                                   ),
+                                  
+                                  // Content
+                                  Padding(
+                                    padding: const EdgeInsets.all(16),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Are you sure you want to mark this planned expense as completed?',
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            color: Colors.black87,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        
+                                        // Items summary
+                                        if (exp.items.isNotEmpty) ...[
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green[50],
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.green[200]!),
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.checklist,
+                                                      color: Colors.green[600],
+                                                      size: 18,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      'Items ($purchasedItemsCount/$totalItemsCount completed):',
+                                                      style: TextStyle(
+                                                        fontWeight: FontWeight.w600,
+                                                        fontSize: 16,
+                                                        color: Colors.green[700],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const SizedBox(height: 12),
+                                                ...exp.items.take(5).map((item) => Padding(
+                                                  padding: const EdgeInsets.only(bottom: 8),
+                                                  child: Row(
+                                                    children: [
+                                                      Icon(
+                                                        item.isPurchased ? Icons.check_circle : Icons.radio_button_unchecked,
+                                                        color: item.isPurchased ? Colors.green[600] : Colors.grey[400],
+                                                        size: 16,
+                                                      ),
+                                                      const SizedBox(width: 8),
+                                                      Expanded(
+                                                        child: Text(
+                                                          item.name,
+                                                          style: TextStyle(
+                                                            fontSize: 14,
+                                                            color: item.isPurchased ? Colors.green[700] : Colors.black87,
+                                                            fontWeight: item.isPurchased ? FontWeight.w500 : FontWeight.normal,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '₱${item.cost.toStringAsFixed(2)}',
+                                                        style: TextStyle(
+                                                          fontSize: 14,
+                                                          color: item.isPurchased ? Colors.green[600] : Colors.grey[600],
+                                                          fontWeight: FontWeight.w600,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                )),
+                                                if (exp.items.length > 5) ...[
+                                                  const SizedBox(height: 8),
+                                                  Text(
+                                                    '... and ${exp.items.length - 5} more items',
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.grey[600],
+                                                      fontStyle: FontStyle.italic,
+                                                    ),
+                                                  ),
+                                                ],
+                                                const SizedBox(height: 12),
+                                                Container(
+                                                  padding: const EdgeInsets.all(8),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.green[200],
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                    children: [
+                                                      Text(
+                                                        'Total:',
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 16,
+                                                          color: Colors.green[800],
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '₱${exp.items.fold(0.0, (sum, item) => sum + item.cost).toStringAsFixed(2)}',
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 16,
+                                                          color: Colors.green[800],
+                                                        ),
+                                                      ),
                                                     ],
                                                   ),
                                                 ),
                                               ],
+                                            ),
+                                          ),
+                                        ] else ...[
+                                          Container(
+                                            padding: const EdgeInsets.all(12),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green[50],
+                                              borderRadius: BorderRadius.circular(8),
+                                              border: Border.all(color: Colors.green[200]!),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.check,
+                                                  color: Colors.green[600],
+                                                  size: 18,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text(
+                                                        exp.name,
+                                                        style: const TextStyle(
+                                                          fontWeight: FontWeight.w600,
+                                                          fontSize: 16,
+                                                          color: Colors.black87,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '₱${exp.cost.toStringAsFixed(2)}',
+                                                        style: TextStyle(
+                                                          color: Colors.green[600],
+                                                          fontSize: 14,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                        
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'This will add it to your expense records.',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                   
-                                              const SizedBox(height: 8),
-                                  Text(
-                                                'This will add it to your expense records.',
-                                    style: TextStyle(
-                                                  fontSize: 12,
-                                      color: Colors.grey[600],
+                                  // Actions
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[50],
+                                      borderRadius: const BorderRadius.only(
+                                        bottomLeft: Radius.circular(16),
+                                        bottomRight: Radius.circular(16),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextButton(
+                                            onPressed: () => Navigator.pop(context, false),
+                                            style: TextButton.styleFrom(
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              'Cancel',
+                                              style: TextStyle(
+                                                color: Colors.grey[600],
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 16),
+                                        Expanded(
+                                          child: ElevatedButton(
+                                            onPressed: () => Navigator.pop(context, true),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.green[600],
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                            ),
+                                            child: const Text(
+                                              'Mark Complete',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
-                              ),
-                                        ),
-                                      ),
-                                      // Actions
-                                      Container(
-                                        padding: const EdgeInsets.all(12),
-                                        decoration: BoxDecoration(
-                                          color: Colors.grey[50],
-                                          borderRadius: const BorderRadius.only(
-                                            bottomLeft: Radius.circular(16),
-                                            bottomRight: Radius.circular(16),
-                                          ),
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            Expanded(
-                                              child: TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                                style: TextButton.styleFrom(
-                                                  padding: const EdgeInsets.symmetric(vertical: 6),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                ),
-                                  child: Text(
-                                    'Cancel',
-                                    style: TextStyle(
-                                      color: Colors.grey[600],
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: ElevatedButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                  style: ElevatedButton.styleFrom(
-                                                  backgroundColor: Colors.green[600],
-                                    foregroundColor: Colors.white,
-                                                  padding: const EdgeInsets.symmetric(vertical: 6),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                                child: const Text(
-                                                  'Mark Complete',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 10,
-                                                  ),
-                                                ),
-                                  ),
-                                ),
-                              ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               ),
                             ),
                           );
@@ -1052,70 +888,36 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                             showDialog(
                               context: context,
                               barrierDismissible: false,
-                              builder: (context) => Dialog(
-                                backgroundColor: Colors.transparent,
-                                insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxHeight: MediaQuery.of(context).size.height * 0.3,
-                                    maxWidth: MediaQuery.of(context).size.width * 0.8,
-                                  ),
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                  borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.15),
-                                          blurRadius: 20,
-                                          offset: const Offset(0, 8),
+                              builder: (context) => ResponsiveDialog.createDialog(
+                                context: context,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(24),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      CircularProgressIndicator(
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
+                                        strokeWidth: 3,
+                                      ),
+                                      const SizedBox(height: 16),
+                                      Text(
+                                        'Completing expense...',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.black87,
+                                          fontWeight: FontWeight.w500,
                                         ),
-                                      ],
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(20),
-                                      child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    CircularProgressIndicator(
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
-                                            strokeWidth: 3,
-                                    ),
-                                          const SizedBox(height: 12),
-                                    Text(
-                                      'Completing expense...',
-                                      style: TextStyle(
-                                              fontSize: 14,
-                                        color: Colors.black87,
-                                        fontWeight: FontWeight.w500,
                                       ),
-                                    ),
-                                  ],
-                                      ),
-                                    ),
+                                    ],
                                   ),
                                 ),
                               ),
                             );
                             
                             try {
-                              // Only record remaining unchecked items, not the entire planned expense
+                              // DO NOT record any additional expenses here
                               // Individual checked items are already recorded when they were checked
-                              final uncheckedItems = exp.items.where((item) => !item.isPurchased).toList();
-                              
-                              if (uncheckedItems.isNotEmpty) {
-                                // Record each unchecked item as a separate expense
-                                for (final item in uncheckedItems) {
-                                  await ExpenseService.createExpense(
-                                    name: item.name,
-                                    amount: item.cost,
-                                    category: item.category.isNotEmpty ? item.category : exp.category,
-                                    categoryIcon: Icons.checklist,
-                                    date: DateTime.now(),
-                                    description: 'Completed from plan: ${exp.name}',
-                                  );
-                                }
-                              }
+                              // We only need to remove the planned expense from the list
                               
                               // Remove from planned expenses
                               await PlannedExpenseService.deletePlannedExpense(exp.id);
@@ -1129,11 +931,13 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                                       children: [
                                         const Icon(Icons.check_circle, color: Colors.white, size: 20),
                                         const SizedBox(width: 8),
-                                        Text(
-                                          allItemsPurchased 
-                                              ? 'All items already recorded! Planned expense completed'
-                                              : 'Remaining items recorded! Planned expense completed',
-                                          style: const TextStyle(fontWeight: FontWeight.w500),
+                                        Expanded(
+                                          child: Text(
+                                            'Planned expense completed! Only checked items were recorded.',
+                                            style: const TextStyle(fontWeight: FontWeight.w500),
+                                            overflow: TextOverflow.visible,
+                                            softWrap: true,
+                                          ),
                                         ),
                                       ],
                                     ),
@@ -1154,7 +958,13 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                                       children: [
                                         const Icon(Icons.error, color: Colors.white, size: 20),
                                         const SizedBox(width: 8),
-                                        Text('Error completing expense: ${e.toString()}'),
+                                        Expanded(
+                                          child: Text(
+                                            'Error completing expense: ${e.toString()}',
+                                            overflow: TextOverflow.visible,
+                                            softWrap: true,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                     backgroundColor: Colors.red[600],
@@ -1186,181 +996,17 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                         onTap: () async {
                           final confirmed = await showDialog<bool>(
                             context: context,
-                            builder: (context) => Dialog(
-                              backgroundColor: Colors.transparent,
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 15, vertical: 35),
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.15),
-                                      blurRadius: 25,
-                                      offset: const Offset(0, 10),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    // Modern header with warning icon
-                                    Container(
-                                      padding: const EdgeInsets.all(24),
-                                      decoration: BoxDecoration(
-                                        gradient: LinearGradient(
-                                          colors: [Colors.red[400]!, Colors.red[500]!],
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
-                                        ),
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(20),
-                                          topRight: Radius.circular(20),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(12),
-                                            decoration: BoxDecoration(
-                                              color: Colors.white.withOpacity(0.25),
-                                              borderRadius: BorderRadius.circular(15),
-                                            ),
-                                            child: const Icon(
-                                              Icons.delete_forever,
-                                              color: Colors.white,
-                                              size: 20,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          const Expanded(
-                                            child: Text(
-                                              'Delete Planned Expense',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 12,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    // Content section
-                                    Padding(
-                                      padding: const EdgeInsets.all(24),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          // Warning message
-                                          Container(
-                                            padding: const EdgeInsets.all(16),
-                                            decoration: BoxDecoration(
-                                              color: Colors.red[50],
-                                              borderRadius: BorderRadius.circular(12),
-                                              border: Border.all(color: Colors.red[200]!),
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Container(
-                                                  padding: const EdgeInsets.all(8),
-                                                  decoration: BoxDecoration(
-                                                    color: Colors.red[100],
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                  child: Icon(
-                                                    Icons.warning_outlined,
-                                                    color: Colors.red[700],
-                                                    size: 20,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 12),
-                                                Expanded(
-                                                  child: Text(
-                                                    'This action cannot be undone. All data will be permanently deleted.',
-                                                    style: TextStyle(
-                                                      fontSize: 8,
-                                                      color: Colors.red[700],
-                                                      height: 1.4,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          const SizedBox(height: 20),
-                                          // Main question
-                                          Text(
-                                            'Are you sure you want to delete "${exp.name}"?',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.black87,
-                                              height: 1.4,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    // Modern action buttons
-                                    Container(
-                                      padding: const EdgeInsets.all(24),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey[50],
-                                        borderRadius: const BorderRadius.only(
-                                          bottomLeft: Radius.circular(20),
-                                          bottomRight: Radius.circular(20),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            child: TextButton(
-                                  onPressed: () => Navigator.pop(context, false),
-                                              style: TextButton.styleFrom(
-                                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(12),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                'Cancel',
-                                                style: TextStyle(
-                                                  color: Colors.grey[600],
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 10,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: ElevatedButton(
-                                  onPressed: () => Navigator.pop(context, true),
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor: Colors.red[600],
-                                                foregroundColor: Colors.white,
-                                                padding: const EdgeInsets.symmetric(vertical: 6),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius: BorderRadius.circular(8),
-                                                ),
-                                                elevation: 2,
-                                              ),
-                                              child: const Text(
-                                                'Delete',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.w600,
-                                                  fontSize: 10,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            builder: (context) => ResponsiveDialog.createConfirmationDialog(
+                              context: context,
+                              title: 'Delete Planned Expense',
+                              message: 'Are you sure you want to delete "${exp.name}"?\n\nThis action cannot be undone. All data will be permanently deleted.',
+                              confirmText: 'Delete',
+                              cancelText: 'Cancel',
+                              icon: Icons.delete_forever,
+                              iconColor: Colors.red[600],
+                              confirmColor: Colors.red[600],
+                              onConfirm: () => Navigator.pop(context, true),
+                              onCancel: () => Navigator.pop(context, false),
                             ),
                           );
                           if (confirmed == true) {
@@ -1405,6 +1051,7 @@ class _ViewSetExpensePageState extends State<ViewSetExpensePage> {
                 ],
               ),
             ),
+            const SizedBox(height: 20), // Add bottom padding
           ],
         ),
       ),

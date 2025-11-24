@@ -376,7 +376,9 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                   ),
                                 ),
                                 Text(
-                                  "₱${exp.cost.toStringAsFixed(2)}",
+                                  exp.items.isNotEmpty 
+                                    ? "₱${exp.checkedAmount.toStringAsFixed(2)}"
+                                    : "₱${exp.cost.toStringAsFixed(2)}",
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
@@ -475,8 +477,10 @@ class _SetExpensePageState extends State<SetExpensePage> {
                                             'name': exp.name,
                                             'category': exp.category,
                                             'amount': exp.cost.toString(),
-                                            'date': exp.startDate.toIso8601String(),
+                                            'startDate': exp.startDate.toIso8601String(),
+                                            'endDate': exp.endDate.toIso8601String(),
                                             'notes': exp.notes ?? '',
+                                            'createdAt': exp.createdAt.toIso8601String(),
                                             'items': exp.items.map((item) => {
                                               'name': item.name,
                                               'cost': item.cost,
